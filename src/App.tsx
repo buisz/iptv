@@ -38,8 +38,15 @@ export default function App() {
   const [playing, setPlaying] = useState<PlayRequest | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
-  // Eerste keer (geen bewaarde bron én niet eerder afgerond): toon de wizard.
-  const [showWizard, setShowWizard] = useState(() => !configured && !isOnboarded())
+  // Eerste keer (geen bewaarde bron én niet eerder afgerond): toon de wizard
+  // verplicht. Daarna kan de wizard opnieuw geopend worden in "rondkijk"-modus.
+  const [wizardOpen, setWizardOpen] = useState(() => !configured && !isOnboarded())
+  const [wizardDismissible, setWizardDismissible] = useState(false)
+
+  function openWizard() {
+    setWizardDismissible(true)
+    setWizardOpen(true)
+  }
 
   const sections = catalog.sections
   const activeSection = useMemo(
@@ -79,7 +86,7 @@ export default function App() {
   }, [playing, sourceOpen, selected])
 
   // Pijltjesnavigatie staat uit zolang een overlay/wizard open is.
-  useSpatialNav(selected === null && !sourceOpen && playing === null && !showWizard)
+  useSpatialNav(selected === null && !sourceOpen && playing === null && !wizardOpen)
 
   function handleSelectSection(key: string) {
     setActiveKey(key)
@@ -132,7 +139,7 @@ export default function App() {
     const ok = await setSource(next)
     if (ok) {
       markOnboarded()
-      setShowWizard(false)
+      setWizardOpen(false)
     }
     return ok
   }
@@ -140,7 +147,7 @@ export default function App() {
   function wizardUseDemo() {
     reset()
     markOnboarded()
-    setShowWizard(false)
+    setWizardOpen(false)
   }
 
   const showHero = activeKey === (sections[0]?.key ?? 'home') && Boolean(catalog.hero)
@@ -218,12 +225,32 @@ export default function App() {
 
       <Player request={playing} onClose={() => setPlaying(null)} />
 
-      {showWizard && (
+      {/* Demo-modus: duidelijke, vaste CTA rechtsonder om de wizard te (her)openen. */}
+      {source.kind === 'demo' && !wizardOpen && (
+        <button
+          onClick={openWizard}
+          className="fixed bottom-5 right-5 z-30 flex items-center gap-2.5 rounded-full bg-buisgroen px-5 py-3 text-sm font-bold text-antraciet-900 shadow-glow transition-transform hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-buisgroen focus-visible:ring-offset-2 focus-visible:ring-offset-antraciet-900 outline-none"
+        >
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-antraciet-900/15">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+          </span>
+          Stel je bron in
+          <span className="rounded-full bg-antraciet-900/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+            Demo
+          </span>
+        </button>
+      )}
+
+      {wizardOpen && (
         <OnboardingWizard
           busy={loading}
           error={error}
           onApply={wizardApply}
           onUseDemo={wizardUseDemo}
+          dismissible={wizardDismissible}
+          onClose={() => setWizardOpen(false)}
         />
       )}
 

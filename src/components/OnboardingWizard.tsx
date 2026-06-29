@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Source, LiveFormatPreset } from '../types/source'
 import { detectSource } from '../api/detect'
 import { getTmdbKey, setTmdbKey } from '../api/tmdb'
@@ -8,8 +8,12 @@ interface OnboardingWizardProps {
   error: string | null
   /** Laadt de bron; true = gelukt (wizard sluit dan), false = fout (blijf staan). */
   onApply: (source: Source) => Promise<boolean>
-  /** Sla over en gebruik de demo-bron. */
+  /** Sla over en gebruik de demo-bron (alleen bij de eerste keer). */
   onUseDemo: () => void
+  /** Of de wizard gesloten mag worden (true zodra er al iets te zien is). */
+  dismissible?: boolean
+  /** Sluiten zonder van bron te wisselen (alleen relevant als dismissible). */
+  onClose?: () => void
 }
 
 type Step = 'welcome' | 'choose' | 'details'
@@ -47,9 +51,26 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   )
 }
 
-export default function OnboardingWizard({ busy, error, onApply, onUseDemo }: OnboardingWizardProps) {
+export default function OnboardingWizard({
+  busy,
+  error,
+  onApply,
+  onUseDemo,
+  dismissible = false,
+  onClose,
+}: OnboardingWizardProps) {
   const [step, setStep] = useState<Step>('welcome')
   const [kind, setKind] = useState<Kind>('xtream')
+
+  // Sluiten met Escape wanneer toegestaan (rondkijk-modus).
+  useEffect(() => {
+    if (!dismissible || !onClose) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dismissible, onClose, busy])
 
   // Snelle plak-detectie
   const [paste, setPaste] = useState('')
@@ -143,6 +164,18 @@ export default function OnboardingWizard({ busy, error, onApply, onUseDemo }: On
       />
 
       <div className="relative w-full max-w-lg rounded-[var(--radius-lg)] border border-white/10 bg-antraciet-800/80 p-6 shadow-2xl backdrop-blur-xl animate-scale-in sm:p-8">
+        {dismissible && onClose && (
+          <button
+            onClick={onClose}
+            aria-label="Wizard sluiten"
+            className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+
         {/* Stap-indicator */}
         <div className="mb-6 flex items-center gap-2">
           {(['welcome', 'choose', 'details'] as Step[]).map((s, i) => {
@@ -179,10 +212,10 @@ export default function OnboardingWizard({ busy, error, onApply, onUseDemo }: On
                 Bron toevoegen
               </button>
               <button
-                onClick={onUseDemo}
+                onClick={dismissible && onClose ? onClose : onUseDemo}
                 className="rounded-full px-6 py-2.5 text-sm font-semibold text-mist-400 transition-colors hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
               >
-                Eerst de demo bekijken
+                {dismissible ? 'Verder rondkijken' : 'Eerst de demo bekijken'}
               </button>
             </div>
           </div>
