@@ -1,0 +1,86 @@
+@import './styles/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Sora', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Sfeerlaag: subtiele diepteal-gloed over de antraciet-basis. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(1100px 620px at 78% -8%, rgba(20, 112, 106, 0.35), transparent 60%),
+      radial-gradient(900px 540px at 8% 4%, rgba(52, 227, 168, 0.1), transparent 55%),
+      linear-gradient(180deg, #0c1012 0%, #0c1012 100%);
+  }
+
+  /* Duidelijke focus voor toetsenbord- en remote-navigatie (TV-essentieel). */
+  :focus-visible {
+    outline: none;
+  }
+}
+
+@layer utilities {
+  /* Horizontale rij zonder zichtbare scrollbar, met snap. */
+  .row-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-snap-type: x proximity;
+  }
+  .row-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .edge-x {
+    padding-left: var(--edge);
+    padding-right: var(--edge);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Onderrand-vervaging zodat rijen mooi de viewport uit lopen. */
+  .mask-fade-r {
+    -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+  }
+}
+
+/* Respecteer prefers-reduced-motion: schakel animaties/transitions uit. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

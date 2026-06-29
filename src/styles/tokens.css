@@ -1,0 +1,37 @@
+/*
+ * Buisz design tokens — fase 1
+ * Eigen merkidentiteit (geen kloon): Antraciet basis, Diepteal diepte,
+ * Buisgroen als signature-accent, Mist als rustige voorgrondkleur.
+ */
+:root {
+  /* Merkkleuren */
+  --buisz-antraciet: #13181b;
+  --buisz-antraciet-900: #0c1012;
+  --buisz-antraciet-700: #1b2227;
+  --buisz-antraciet-600: #252e34;
+
+  --buisz-diepteal: #0e4f4a;
+  --buisz-diepteal-500: #14706a;
+  --buisz-diepteal-400: #1d938b;
+
+  --buisz-groen: #34e3a8;
+  --buisz-groen-600: #1fb583;
+  --buisz-groen-400: #5cf0bd;
+
+  --buisz-mist: #e9f1f0;
+  --buisz-mist-400: #9fb2b1;
+  --buisz-mist-300: #74898a;
+
+  /* Semantisch */
+  --bg: var(--buisz-antraciet-900);
+  --surface: var(--buisz-antraciet-700);
+  --text: var(--buisz-mist);
+  --text-muted: var(--buisz-mist-400);
+  --accent: var(--buisz-groen);
+
+  /* Ritme */
+  --radius-card: 14px;
+  --radius-lg: 22px;
+  --row-gap: clamp(2rem, 4vw, 3.25rem);
+  --edge: clamp(1rem, 5vw, 4rem);
+}
