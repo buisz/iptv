@@ -9,6 +9,7 @@ interface NavBarProps {
   loading: boolean
   onOpenSource: () => void
   onSearch: () => void
+  onGuide: () => void
 }
 
 function Logo() {
@@ -36,6 +37,7 @@ export default function NavBar({
   loading,
   onOpenSource,
   onSearch,
+  onGuide,
 }: NavBarProps) {
   const [scrolled, setScrolled] = useState(false)
 
@@ -97,6 +99,17 @@ export default function NavBar({
               ].join(' ')}
             />
             <span className="hidden truncate sm:block">{sourceLabel}</span>
+          </button>
+          <button
+            onClick={onGuide}
+            aria-label="TV-gids"
+            title="TV-gids"
+            className="grid h-10 w-10 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M3 9h18M8 4v16" strokeLinecap="round" />
+            </svg>
           </button>
           <button
             onClick={onSearch}

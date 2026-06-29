@@ -6,6 +6,7 @@ import DetailOverlay from './components/DetailOverlay'
 import SourceModal from './components/SourceModal'
 import OnboardingWizard from './components/OnboardingWizard'
 import SearchOverlay from './components/SearchOverlay'
+import GuideOverlay from './components/GuideOverlay'
 import Player, { type PlayRequest } from './components/Player'
 import type { MediaItem } from './types/content'
 import type { Source } from './types/source'
@@ -41,6 +42,7 @@ export default function App() {
   const [playing, setPlaying] = useState<PlayRequest | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
   // Versie-teller om "Verder kijken" te verversen nadat de speler sluit.
   const [cwVersion, setCwVersion] = useState(0)
@@ -89,6 +91,8 @@ export default function App() {
     return out
   }, [sections])
 
+  const liveChannels = useMemo(() => allItems.filter((i) => i.kind === 'live'), [allItems])
+
   // Houd de actieve sectie geldig wanneer de catalogus (bron) verandert.
   useEffect(() => {
     if (!sections.some((s) => s.key === activeKey)) {
@@ -111,6 +115,9 @@ export default function App() {
       } else if (searchOpen) {
         e.preventDefault()
         setSearchOpen(false)
+      } else if (guideOpen) {
+        e.preventDefault()
+        setGuideOpen(false)
       } else if (sourceOpen) {
         e.preventDefault()
         setSourceOpen(false)
@@ -121,11 +128,11 @@ export default function App() {
     }
     window.addEventListener('keydown', onBack)
     return () => window.removeEventListener('keydown', onBack)
-  }, [playing, sourceOpen, selected, searchOpen])
+  }, [playing, sourceOpen, selected, searchOpen, guideOpen])
 
   // Pijltjesnavigatie staat uit zolang een overlay/wizard open is.
   useSpatialNav(
-    selected === null && !sourceOpen && playing === null && !wizardOpen && !searchOpen,
+    selected === null && !sourceOpen && playing === null && !wizardOpen && !searchOpen && !guideOpen,
   )
 
   function handleSelectSection(key: string) {
@@ -203,6 +210,7 @@ export default function App() {
         loading={loading}
         onOpenSource={() => setSourceOpen(true)}
         onSearch={() => setSearchOpen(true)}
+        onGuide={() => setGuideOpen(true)}
       />
 
       <main>
@@ -268,6 +276,16 @@ export default function App() {
         onClose={() => setSearchOpen(false)}
         onOpen={(item) => {
           setSearchOpen(false)
+          openItem(item)
+        }}
+      />
+
+      <GuideOverlay
+        open={guideOpen}
+        channels={liveChannels}
+        onClose={() => setGuideOpen(false)}
+        onOpen={(item) => {
+          setGuideOpen(false)
           openItem(item)
         }}
       />
