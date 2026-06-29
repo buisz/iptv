@@ -27,11 +27,17 @@ npm run dev      # start op http://localhost:5173
 Andere scripts:
 
 ```bash
-npm run build        # type-check (tsc) + productie-build
+npm run build        # type-check (tsc) + productie-build (modern + ES5-legacy)
 npm run preview      # bekijk de productie-build lokaal
 npm run build:proxy  # build met de productie-proxy ingeschakeld (VITE_PROXY_BASE=/__proxy)
 npm run serve        # serveer dist/ + /__proxy met server/proxy.mjs (poort 4173)
 ```
+
+Elke build levert **twee bundels**: een moderne ES2015-modulebundel én een
+**ES5-legacy-bundel** met polyfills (via `@vitejs/plugin-legacy`), zodat oude
+TV-engines (Tizen 3.0/Chromium M47, LG webOS 3.5/Chromium 38) de app via `nomodule`
+kunnen laden. De support-matrix, optimalisaties en distributiekeuzes staan in
+**[`docs/platforms.md`](docs/platforms.md)**.
 
 ### Een bron laden
 
@@ -149,4 +155,5 @@ spelen; alternatief is een **TWA**. De D-pad-navigatie en back-knop werken al.
 
 ## Tech
 
-React 18 · Vite 5 · TypeScript · Tailwind CSS 3 · hls.js · mpegts.js.
+React 18 · Vite 5 · TypeScript · Tailwind CSS 3 · hls.js · mpegts.js ·
+@vitejs/plugin-legacy (ES5-build voor oude TV's).

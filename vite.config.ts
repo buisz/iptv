@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import legacy from '@vitejs/plugin-legacy'
 
 /**
  * Dev-proxy voor CORS.
@@ -44,7 +45,27 @@ function devProxy(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), devProxy()],
+  plugins: [
+    react(),
+    // ES5/legacy-bundel voor oude TV-engines (Tizen 3.0/Chromium M47,
+    // LG webOS 3.5/Chromium 38, oude Android-WebView). Moderne browsers krijgen
+    // de gewone ES2015-modulebundel; oude engines vallen via `nomodule` terug op
+    // de getranspileerde ES5-bundel met core-js-polyfills (SystemJS-loader).
+    legacy({
+      targets: ['chrome >= 38', 'edge >= 18', 'firefox >= 60', 'safari >= 11'],
+      // fetch (Chrome <42) en async/await→regenerator voor de oudste targets.
+      additionalLegacyPolyfills: ['regenerator-runtime/runtime', 'whatwg-fetch'],
+      // Ook de "moderne" bundel polyfillen: webOS 6 = Chromium 79 en Tizen 2021
+      // = M76 missen bijv. String.prototype.replaceAll (Chrome 85).
+      modernPolyfills: true,
+      renderLegacyChunks: true,
+    }),
+    devProxy(),
+  ],
+  build: {
+    // Moderne bundel op ES2015 (alle module-capable engines zijn Chromium 61+).
+    target: 'es2015',
+  },
   server: {
     host: true,
     port: 5173,

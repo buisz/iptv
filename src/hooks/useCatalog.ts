@@ -54,29 +54,33 @@ export function useCatalog(): UseCatalog {
 
   const load = useCallback(async (next: Source) => {
     abortRef.current?.abort()
-    const controller = new AbortController()
+    // AbortController ontbreekt op de oudste TV-engines (< Chromium 66) —
+    // dan draaien we zonder annulering i.p.v. te crashen.
+    const controller =
+      typeof AbortController !== 'undefined' ? new AbortController() : null
     abortRef.current = controller
+    const aborted = () => controller?.signal.aborted ?? false
 
     setLoading(true)
     setError(null)
     try {
-      const result = await loadCatalog(next, controller.signal)
-      if (controller.signal.aborted) return
+      const result = await loadCatalog(next, controller?.signal)
+      if (aborted()) return
       setCatalog(result)
       setSourceState(next)
       storeSource(next)
 
       // EPG op de achtergrond toepassen (live nu/straks) — niet-blokkerend.
       if (result.epgUrl) {
-        void loadAndApplyEpg(result, Date.now(), controller.signal).then((withEpg) => {
-          if (!controller.signal.aborted && withEpg !== result) setCatalog(withEpg)
+        void loadAndApplyEpg(result, Date.now(), controller?.signal).then((withEpg) => {
+          if (!aborted() && withEpg !== result) setCatalog(withEpg)
         })
       }
     } catch (err) {
-      if (controller.signal.aborted) return
+      if (aborted()) return
       setError((err as Error).message || 'Laden van de bron mislukt.')
     } finally {
-      if (!controller.signal.aborted) setLoading(false)
+      if (!aborted()) setLoading(false)
     }
   }, [])
 

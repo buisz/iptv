@@ -1,0 +1,8 @@
+# Support-matrix voor Buisz (zie docs/platforms.md).
+# Ondergrens ~2017-TV-engines: Tizen 3.0 (Chromium M47), LG webOS 3.5 (Chromium 38),
+# oude Android-WebView. Stuurt zowel @vitejs/plugin-legacy (JS-transpile/polyfills)
+# als autoprefixer (CSS-prefixes) aan.
+chrome >= 38
+edge >= 18
+firefox >= 60
+safari >= 11

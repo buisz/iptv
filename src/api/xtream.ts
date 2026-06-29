@@ -82,14 +82,17 @@ export function liveStreamUrl(s: XtreamSource, streamId: string | number): strin
   const preset = s.liveFormat ?? 'ts'
   const template =
     preset === 'custom' ? (s.liveTemplate ?? LIVE_PRESETS.ts) : LIVE_PRESETS[preset]
-  return template
-    .replaceAll('{scheme}', scheme(s))
-    .replaceAll('{host}', s.host)
-    .replaceAll('{port}', String(port(s)))
-    .replaceAll('{username}', s.username)
-    .replaceAll('{password}', s.password)
-    .replaceAll('{id}', String(streamId))
-    .replaceAll('{ext}', 'ts')
+  // split/join i.p.v. String.replaceAll: laatste ontbreekt op oude TV-engines.
+  const fill = (str: string, token: string, value: string) => str.split(token).join(value)
+  let url = template
+  url = fill(url, '{scheme}', scheme(s))
+  url = fill(url, '{host}', s.host)
+  url = fill(url, '{port}', String(port(s)))
+  url = fill(url, '{username}', s.username)
+  url = fill(url, '{password}', s.password)
+  url = fill(url, '{id}', String(streamId))
+  url = fill(url, '{ext}', 'ts')
+  return url
 }
 
 export function vodStreamUrl(s: XtreamSource, streamId: string | number, ext = 'mp4'): string {
