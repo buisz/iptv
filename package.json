@@ -15,11 +15,14 @@
     "package:webos": "node scripts/package-webos.mjs",
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
+    "ios:sync": "npm run build && cap sync ios",
+    "ios:open": "cap open ios",
     "lint": "tsc -b --noEmit"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.7",
     "@capacitor/core": "^7.6.7",
+    "@capacitor/ios": "^7.6.7",
     "@caprockapps/capacitor-chromecast": "^7.0.6",
     "hls.js": "^1.6.16",
     "mpegts.js": "^1.8.0",

@@ -161,9 +161,12 @@ apps vaak "niet werkt". Wat er nu is en wat nog nodig is:
   het CAF-web-pad in de browser. **Functioneel casten** is alleen te valideren op een
   toestel met Google Play Services + een echte Chromecast op hetzelfde wifi; CI
   bevestigt enkel dat de APK blíjft bouwen.
-- **AirPlay in-app op iOS** vereist een `ios/`-target (`npx cap add ios`); de WKWebView
-  erft dan de WebKit-AirPlay-API automatisch (mits bovenstaande web-flow). Native
-  `AVRoutePickerView` is alleen nodig voor FairPlay-DRM/lockscreen-controle.
+- **AirPlay in-app op iOS**: het `ios/`-target is toegevoegd (Capacitor 7). De
+  WKWebView erft de WebKit-AirPlay-API automatisch (`allowsAirPlayForMediaPlayback`
+  default aan), dus met de web-flow hierboven werkt AirPlay ook in de iOS-app.
+  Bouwen vereist **macOS + Xcode + CocoaPods** (`pod install`, dan `npm run ios:open`);
+  dat kan niet in deze Linux-/CI-omgeving. Native `AVRoutePickerView` is alleen nodig
+  voor FairPlay-DRM/lockscreen-controle.
 
 **Belangrijke valkuilen (gelden voor beide):** HTTPS overal verplicht (pagina én
 stream; mixed content blokkeert de knop); het Cast/AirPlay-apparaat moet de stream-URL
