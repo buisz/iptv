@@ -4,6 +4,7 @@ import HeroBanner from './components/HeroBanner'
 import ContentRow from './components/ContentRow'
 import DetailOverlay from './components/DetailOverlay'
 import SourceModal from './components/SourceModal'
+import OnboardingWizard from './components/OnboardingWizard'
 import Player, { type PlayRequest } from './components/Player'
 import type { MediaItem } from './types/content'
 import type { Source } from './types/source'
@@ -12,13 +13,33 @@ import { useCatalog } from './hooks/useCatalog'
 import { enrichItem } from './api/tmdb'
 import { loadSeriesInfo } from './api/xtream'
 
+const ONBOARDED_KEY = 'buisz.onboarded'
+
+function isOnboarded(): boolean {
+  try {
+    return localStorage.getItem(ONBOARDED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markOnboarded() {
+  try {
+    localStorage.setItem(ONBOARDED_KEY, '1')
+  } catch {
+    /* localStorage niet beschikbaar — wizard verschijnt dan opnieuw */
+  }
+}
+
 export default function App() {
-  const { source, catalog, loading, error, setSource, reset, patchCatalog } = useCatalog()
+  const { source, catalog, loading, error, setSource, reset, patchCatalog, configured } = useCatalog()
   const [activeKey, setActiveKey] = useState('home')
   const [selected, setSelected] = useState<MediaItem | null>(null)
   const [playing, setPlaying] = useState<PlayRequest | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
+  // Eerste keer (geen bewaarde bron én niet eerder afgerond): toon de wizard.
+  const [showWizard, setShowWizard] = useState(() => !configured && !isOnboarded())
 
   const sections = catalog.sections
   const activeSection = useMemo(
@@ -57,8 +78,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', onBack)
   }, [playing, sourceOpen, selected])
 
-  // Pijltjesnavigatie staat uit zolang een overlay open is.
-  useSpatialNav(selected === null && !sourceOpen && playing === null)
+  // Pijltjesnavigatie staat uit zolang een overlay/wizard open is.
+  useSpatialNav(selected === null && !sourceOpen && playing === null && !showWizard)
 
   function handleSelectSection(key: string) {
     setActiveKey(key)
@@ -101,9 +122,25 @@ export default function App() {
   }
 
   async function applySource(next: Source) {
-    await setSource(next)
-    // Sluit de modal alleen bij succes (de hook houdt de fout vast).
-    setSourceOpen(false)
+    const ok = await setSource(next)
+    // Sluit de modal alleen bij succes; bij een fout blijft hij open met de melding.
+    if (ok) setSourceOpen(false)
+  }
+
+  // Wizard: laadt de bron en sluit de wizard alleen bij succes.
+  async function wizardApply(next: Source): Promise<boolean> {
+    const ok = await setSource(next)
+    if (ok) {
+      markOnboarded()
+      setShowWizard(false)
+    }
+    return ok
+  }
+
+  function wizardUseDemo() {
+    reset()
+    markOnboarded()
+    setShowWizard(false)
   }
 
   const showHero = activeKey === (sections[0]?.key ?? 'home') && Boolean(catalog.hero)
@@ -180,6 +217,15 @@ export default function App() {
       <DetailOverlay item={selected} onClose={() => setSelected(null)} onPlay={setPlaying} />
 
       <Player request={playing} onClose={() => setPlaying(null)} />
+
+      {showWizard && (
+        <OnboardingWizard
+          busy={loading}
+          error={error}
+          onApply={wizardApply}
+          onUseDemo={wizardUseDemo}
+        />
+      )}
 
       <SourceModal
         open={sourceOpen}

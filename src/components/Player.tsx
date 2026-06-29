@@ -23,11 +23,27 @@ function isMpegTs(url: string): boolean {
   return /\.ts(\?|$)/i.test(url) || /\/live\//i.test(url) || /\/\d+$/.test(url)
 }
 
+// Remote Playback API beschikbaar? (Chrome/Cast, Android-WebView met Cast.)
+const CAN_CAST =
+  typeof HTMLMediaElement !== 'undefined' && 'remote' in HTMLMediaElement.prototype
+
 export default function Player({ request, onClose }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const cleanupRef = useRef<() => void>(() => {})
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
+
+  // Opent de cast-/remote-playback-kiezer (Chromecast/Google TV).
+  function cast() {
+    const remote = videoRef.current?.remote
+    // prompt() faalt als er geen apparaten zijn — stil opvangen.
+    remote?.prompt?.().catch(() => {})
+  }
+
+  // AirPlay toestaan op Safari/iOS (toont de native AirPlay-knop in de controls).
+  useEffect(() => {
+    videoRef.current?.setAttribute('x-webkit-airplay', 'allow')
+  }, [request])
 
   // Escape sluit; body-scroll vergrendelen zolang open.
   useEffect(() => {
@@ -152,15 +168,30 @@ export default function Player({ request, onClose }: PlayerProps) {
             {status === 'playing' && ' · speelt af'}
           </p>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Speler sluiten"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-mist transition-colors hover:bg-white/20 hover:text-buisgroen focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
-        >
-          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
-          </svg>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {request.url && CAN_CAST && (
+            <button
+              onClick={cast}
+              aria-label="Casten naar tv/Chromecast"
+              title="Casten (Chromecast / Google TV)"
+              className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-mist transition-colors hover:bg-white/20 hover:text-buisgroen focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+            >
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="3" cy="20" r="1" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Speler sluiten"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-mist transition-colors hover:bg-white/20 hover:text-buisgroen focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+          >
+            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="relative flex flex-1 items-center justify-center">

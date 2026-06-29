@@ -32,12 +32,14 @@ export interface UseCatalog {
   catalog: Catalog
   loading: boolean
   error: string | null
-  /** Wissel van bron; laadt en bewaart bij succes. */
-  setSource: (source: Source) => Promise<void>
+  /** Wissel van bron; laadt en bewaart bij succes. Geeft true terug bij succes. */
+  setSource: (source: Source) => Promise<boolean>
   /** Terug naar de demo-bron. */
   reset: () => void
   /** Vervang het actieve catalogus-item (bijv. na TMDB-verrijking). */
   patchCatalog: (updater: (prev: Catalog) => Catalog) => void
+  /** Was er bij opstart al een echte (niet-demo) bron bewaard? */
+  configured: boolean
 }
 
 /**
@@ -50,9 +52,11 @@ export function useCatalog(): UseCatalog {
   const [catalog, setCatalog] = useState<Catalog>(() => demoCatalog())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [configured] = useState(() => readStoredSource().kind !== 'demo')
   const abortRef = useRef<AbortController | null>(null)
 
-  const load = useCallback(async (next: Source) => {
+  /** Laadt een bron; geeft true terug bij succes, false bij fout/abort. */
+  const load = useCallback(async (next: Source): Promise<boolean> => {
     abortRef.current?.abort()
     // AbortController ontbreekt op de oudste TV-engines (< Chromium 66) —
     // dan draaien we zonder annulering i.p.v. te crashen.
@@ -65,7 +69,7 @@ export function useCatalog(): UseCatalog {
     setError(null)
     try {
       const result = await loadCatalog(next, controller?.signal)
-      if (aborted()) return
+      if (aborted()) return false
       setCatalog(result)
       setSourceState(next)
       storeSource(next)
@@ -76,9 +80,11 @@ export function useCatalog(): UseCatalog {
           if (!aborted() && withEpg !== result) setCatalog(withEpg)
         })
       }
+      return true
     } catch (err) {
-      if (aborted()) return
+      if (aborted()) return false
       setError((err as Error).message || 'Laden van de bron mislukt.')
+      return false
     } finally {
       if (!aborted()) setLoading(false)
     }
@@ -104,5 +110,5 @@ export function useCatalog(): UseCatalog {
     setCatalog((prev) => updater(prev))
   }, [])
 
-  return { source, catalog, loading, error, setSource: load, reset, patchCatalog }
+  return { source, catalog, loading, error, setSource: load, reset, patchCatalog, configured }
 }
