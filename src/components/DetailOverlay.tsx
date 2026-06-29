@@ -4,6 +4,7 @@ import type { MediaItem } from '../types/content'
 interface DetailOverlayProps {
   item: MediaItem | null
   onClose: () => void
+  onPlay: (req: { title: string; url?: string; kind: MediaItem['kind'] }) => void
 }
 
 const kindLabel: Record<MediaItem['kind'], string> = {
@@ -12,7 +13,7 @@ const kindLabel: Record<MediaItem['kind'], string> = {
   series: 'Serie',
 }
 
-export default function DetailOverlay({ item, onClose }: DetailOverlayProps) {
+export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const [activeSeason, setActiveSeason] = useState(0)
 
@@ -82,8 +83,10 @@ export default function DetailOverlay({ item, onClose }: DetailOverlayProps) {
                 {item.title}
               </h2>
             </div>
-            {/* Trailer-knop (placeholder — TMDB-trailer komt in fase 2). */}
-            <button className="hidden shrink-0 items-center gap-2 rounded-full bg-buisgroen px-5 py-2.5 text-sm font-bold text-antraciet-900 shadow-glow transition-transform hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none sm:flex">
+            <button
+              onClick={() => onPlay({ title: item.title, url: item.streamUrl, kind: item.kind })}
+              className="hidden shrink-0 items-center gap-2 rounded-full bg-buisgroen px-5 py-2.5 text-sm font-bold text-antraciet-900 shadow-glow transition-transform hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none sm:flex"
+            >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
                 <path d="M8 5.5v13l11-6.5z" />
               </svg>
@@ -94,6 +97,17 @@ export default function DetailOverlay({ item, onClose }: DetailOverlayProps) {
 
         {/* Inhoud */}
         <div className="space-y-6 p-6">
+          {/* Afspeelknop (mobiel; desktop heeft de knop in de header) */}
+          <button
+            onClick={() => onPlay({ title: item.title, url: item.streamUrl, kind: item.kind })}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-buisgroen px-5 py-3 text-sm font-bold text-antraciet-900 shadow-glow outline-none focus-visible:ring-2 focus-visible:ring-buisgroen sm:hidden"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5z" />
+            </svg>
+            {item.kind === 'live' ? 'Kijk live' : 'Afspelen'}
+          </button>
+
           {/* Metadata-regel */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium text-mist-400">
             {item.score != null && (
@@ -169,7 +183,16 @@ export default function DetailOverlay({ item, onClose }: DetailOverlayProps) {
               <ul className="divide-y divide-white/[0.06] overflow-hidden rounded-xl border border-white/[0.06]">
                 {season.episodes.map((ep) => (
                   <li key={ep.id}>
-                    <button className="flex w-full items-center gap-4 p-3.5 text-left transition-colors hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-buisgroen outline-none">
+                    <button
+                      onClick={() =>
+                        onPlay({
+                          title: `${item.title} — ${ep.title}`,
+                          url: ep.streamUrl,
+                          kind: 'series',
+                        })
+                      }
+                      className="flex w-full items-center gap-4 p-3.5 text-left transition-colors hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-buisgroen outline-none"
+                    >
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-antraciet-600 text-sm font-bold text-mist-400">
                         {ep.episodeNumber}
                       </span>

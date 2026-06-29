@@ -239,6 +239,7 @@ export async function loadSeriesInfo(
         durationMin: Math.round((ep.info?.duration_secs ?? 0) / 60) || 0,
         synopsis: ep.info?.plot ?? '',
         still: undefined,
+        streamUrl: seriesStreamUrl(s, ep.id, ep.container_extension || 'mp4'),
       })),
     })
   }

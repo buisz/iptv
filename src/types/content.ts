@@ -16,6 +16,8 @@ export interface Episode {
   durationMin: number
   synopsis: string
   still?: string
+  /** Directe afspeel-URL (fase 2; bij demo afwezig). */
+  streamUrl?: string
 }
 
 export interface MediaItem {
@@ -80,9 +82,4 @@ export interface Catalog {
   epgUrl?: string
   /** Niet-fatale meldingen, bijv. afgekapte rijen of overgeslagen items. */
   notices?: string[]
-}
-
-/** Episode met afspeel-URL (fase 2). */
-export interface PlayableEpisode extends Episode {
-  streamUrl?: string
 }

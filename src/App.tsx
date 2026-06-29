@@ -4,6 +4,7 @@ import HeroBanner from './components/HeroBanner'
 import ContentRow from './components/ContentRow'
 import DetailOverlay from './components/DetailOverlay'
 import SourceModal from './components/SourceModal'
+import Player, { type PlayRequest } from './components/Player'
 import type { MediaItem } from './types/content'
 import type { Source } from './types/source'
 import { useSpatialNav } from './hooks/useSpatialNav'
@@ -15,6 +16,7 @@ export default function App() {
   const { source, catalog, loading, error, setSource, reset, patchCatalog } = useCatalog()
   const [activeKey, setActiveKey] = useState('home')
   const [selected, setSelected] = useState<MediaItem | null>(null)
+  const [playing, setPlaying] = useState<PlayRequest | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
 
@@ -34,7 +36,7 @@ export default function App() {
   useEffect(() => setNoticesDismissed(false), [catalog])
 
   // Pijltjesnavigatie staat uit zolang een overlay open is.
-  useSpatialNav(selected === null && !sourceOpen)
+  useSpatialNav(selected === null && !sourceOpen && playing === null)
 
   function handleSelectSection(key: string) {
     setActiveKey(key)
@@ -153,7 +155,9 @@ export default function App() {
         </footer>
       </main>
 
-      <DetailOverlay item={selected} onClose={() => setSelected(null)} />
+      <DetailOverlay item={selected} onClose={() => setSelected(null)} onPlay={setPlaying} />
+
+      <Player request={playing} onClose={() => setPlaying(null)} />
 
       <SourceModal
         open={sourceOpen}
