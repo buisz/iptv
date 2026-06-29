@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { MediaKind } from '../types/content'
 import { castMedia, initCast, onCastAvailability } from '../api/cast'
 import { resumePosition, saveProgress } from '../api/progress'
+import { lockScroll, unlockScroll } from '../lib/scrollLock'
+import { proxied } from '../api/proxy'
 
 export interface PlayRequest {
   title: string
@@ -119,11 +121,10 @@ export default function Player({ request, onClose }: PlayerProps) {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    lockScroll()
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      unlockScroll()
     }
   }, [request, onClose])
 
@@ -177,7 +178,9 @@ export default function Player({ request, onClose }: PlayerProps) {
           if (cancelled) return
           if (mpegts.isSupported()) {
             const player = mpegts.createPlayer(
-              { type: 'mpegts', isLive: request!.kind === 'live', url: url! },
+              // mpegts.js haalt de stream via fetch op → CORS. Via de proxy
+              // (dev: /__proxy, web-deploy: VITE_PROXY_BASE) omzeilen we dat.
+              { type: 'mpegts', isLive: request!.kind === 'live', url: proxied(url!) },
               { enableWorker: true, liveBufferLatencyChasing: request!.kind === 'live' },
             )
             player.attachMediaElement(video!)
@@ -274,10 +277,10 @@ export default function Player({ request, onClose }: PlayerProps) {
         </div>
       </div>
 
-      <div className="relative flex flex-1 items-center justify-center">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center">
         <video
           ref={videoRef}
-          className="max-h-full max-w-full"
+          className="h-full max-h-full w-full object-contain"
           controls
           autoPlay
           playsInline

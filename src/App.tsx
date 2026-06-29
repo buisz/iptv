@@ -250,10 +250,7 @@ export default function App() {
         )}
 
         <div
-          className={[
-            'relative z-10 flex flex-col',
-            showHero ? '-mt-[clamp(3rem,10vh,9rem)] pt-2' : 'pt-4',
-          ].join(' ')}
+          className="relative z-10 flex flex-col pt-6"
           style={{ gap: 'var(--row-gap)' }}
         >
           {rowsToRender.map((row, i) => (

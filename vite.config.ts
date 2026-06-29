@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
+import { Readable } from 'node:stream'
 
 /**
  * Dev-proxy voor CORS.
@@ -23,19 +24,30 @@ function devProxy(): Plugin {
             res.end('ontbrekende ?url parameter')
             return
           }
-          const upstream = await fetch(target, {
-            headers: { 'User-Agent': 'BuiszIPTV/0.1 (dev-proxy)' },
-            redirect: 'follow',
-          })
+          // Range doorgeven (zoeken in VOD) en de stream live doorsluizen.
+          const headers: Record<string, string> = { 'User-Agent': 'BuiszIPTV/0.1 (dev-proxy)' }
+          if (req.headers.range) headers['range'] = req.headers.range
+          const upstream = await fetch(target, { headers, redirect: 'follow' })
+
           res.statusCode = upstream.status
-          const contentType = upstream.headers.get('content-type')
-          if (contentType) res.setHeader('content-type', contentType)
+          for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
+            const v = upstream.headers.get(h)
+            if (v) res.setHeader(h, v)
+          }
           res.setHeader('access-control-allow-origin', '*')
           res.setHeader('cache-control', 'no-store')
-          const body = Buffer.from(await upstream.arrayBuffer())
-          res.end(body)
+
+          if (!upstream.body) {
+            res.end()
+            return
+          }
+          // Pipe i.p.v. bufferen: anders hangt een live-stream eeuwig.
+          const stream = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0])
+          stream.on('error', () => res.destroy())
+          req.on('close', () => stream.destroy())
+          stream.pipe(res)
         } catch (err) {
-          res.statusCode = 502
+          if (!res.headersSent) res.statusCode = 502
           res.end(`proxy-fout: ${(err as Error).message}`)
         }
       })

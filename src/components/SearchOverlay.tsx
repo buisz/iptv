@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MediaItem } from '../types/content'
 import PosterCard from './PosterCard'
+import { lockScroll, unlockScroll } from '../lib/scrollLock'
 
 interface SearchOverlayProps {
   open: boolean
@@ -27,12 +28,11 @@ export default function SearchOverlay({ open, items, onClose, onOpen }: SearchOv
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    lockScroll()
     return () => {
       clearTimeout(t)
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      unlockScroll()
     }
   }, [open, onClose])
 

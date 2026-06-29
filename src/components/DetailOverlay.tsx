@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '../types/content'
 import type { PlayRequest } from './Player'
+import { lockScroll, unlockScroll } from '../lib/scrollLock'
 
 interface DetailOverlayProps {
   item: MediaItem | null
@@ -31,13 +32,12 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    lockScroll()
     // Focus de panel-container voor toetsenbordgebruikers.
     panelRef.current?.focus()
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
+      unlockScroll()
     }
   }, [item, onClose])
 

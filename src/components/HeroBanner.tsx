@@ -31,7 +31,7 @@ function Meta({ item }: { item: MediaItem }) {
 
 export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
   return (
-    <section className="relative h-[78vh] min-h-[560px] w-full">
+    <section className="relative h-[68vh] min-h-[480px] w-full">
       {/* Achtergrondbeeld */}
       <div className="absolute inset-0">
         {item.backdrop ? (

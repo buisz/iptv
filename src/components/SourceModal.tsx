@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Source, LiveFormatPreset } from '../types/source'
 import { getTmdbKey, setTmdbKey } from '../api/tmdb'
+import { lockScroll, unlockScroll } from '../lib/scrollLock'
 
 interface SourceModalProps {
   open: boolean
@@ -89,12 +90,11 @@ export default function SourceModal({
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    lockScroll()
     panelRef.current?.focus()
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      unlockScroll()
     }
   }, [open, onClose])
 

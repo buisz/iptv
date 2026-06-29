@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import type { MediaItem } from '../types/content'
+import { lockScroll, unlockScroll } from '../lib/scrollLock'
 
 interface GuideOverlayProps {
   open: boolean
@@ -78,11 +79,10 @@ export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideO
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    lockScroll()
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      unlockScroll()
     }
   }, [open, onClose])
 

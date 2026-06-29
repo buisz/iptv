@@ -18,6 +18,7 @@ import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { join, normalize, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Readable } from 'node:stream'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'dist')
@@ -43,19 +44,29 @@ async function handleProxy(req, res, target) {
     return
   }
   try {
-    const upstream = await fetch(target, {
-      headers: { 'User-Agent': 'BuiszIPTV/0.1 (proxy)' },
-      redirect: 'follow',
-    })
+    const headers = { 'User-Agent': 'BuiszIPTV/0.1 (proxy)' }
+    if (req.headers.range) headers['range'] = req.headers.range
+    const upstream = await fetch(target, { headers, redirect: 'follow' })
+
     res.statusCode = upstream.status
-    const ct = upstream.headers.get('content-type')
-    if (ct) res.setHeader('content-type', ct)
+    for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
+      const v = upstream.headers.get(h)
+      if (v) res.setHeader(h, v)
+    }
     res.setHeader('access-control-allow-origin', '*')
     res.setHeader('cache-control', 'no-store')
-    const buf = Buffer.from(await upstream.arrayBuffer())
-    res.end(buf)
+
+    if (!upstream.body) {
+      res.end()
+      return
+    }
+    // Pipe i.p.v. bufferen, zodat live-streams blijven doorlopen.
+    const stream = Readable.fromWeb(upstream.body)
+    stream.on('error', () => res.destroy())
+    req.on('close', () => stream.destroy())
+    stream.pipe(res)
   } catch (err) {
-    res.writeHead(502)
+    if (!res.headersSent) res.writeHead(502)
     res.end(`proxy-fout: ${err.message}`)
   }
 }
