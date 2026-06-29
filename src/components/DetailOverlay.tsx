@@ -13,6 +13,11 @@ const kindLabel: Record<MediaItem['kind'], string> = {
   series: 'Serie',
 }
 
+/** Tijdstip in ms → "HH:MM" (lokale tijd). */
+function clock(ms: number): string {
+  return new Date(ms).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+}
+
 export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const [activeSeason, setActiveSeason] = useState(0)
@@ -127,9 +132,41 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
             )}
           </div>
 
-          <p className="max-w-2xl text-balance text-[15px] leading-relaxed text-mist-500">
-            {item.synopsis}
-          </p>
+          {item.synopsis && (
+            <p className="max-w-2xl text-balance text-[15px] leading-relaxed text-mist-500">
+              {item.synopsis}
+            </p>
+          )}
+
+          {/* EPG nu/straks (live) */}
+          {item.kind === 'live' && (item.epgNow || item.epgNext) && (
+            <div className="space-y-2">
+              {item.epgNow && (
+                <div className="flex items-start gap-3 rounded-xl border border-buisgroen/20 bg-buisgroen/[0.06] p-3">
+                  <span className="mt-0.5 shrink-0 rounded bg-buisgroen px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-antraciet-900">
+                    Nu
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-mist">{item.epgNow.title}</p>
+                    <p className="text-xs text-mist-400">
+                      {clock(item.epgNow.start)} – {clock(item.epgNow.stop)}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {item.epgNext && (
+                <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] p-3">
+                  <span className="mt-0.5 shrink-0 rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-mist-400">
+                    Straks
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-mist">{item.epgNext.title}</p>
+                    <p className="text-xs text-mist-400">{clock(item.epgNext.start)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Genres */}
           {item.genres.length > 0 && (

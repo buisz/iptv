@@ -64,6 +64,7 @@ export default function NavBar({
                 <button
                   onClick={() => onSelect(s.key)}
                   aria-current={active ? 'page' : undefined}
+                  data-nav-top
                   className={[
                     'relative rounded-full px-4 py-2 text-sm font-medium transition-colors',
                     'focus-visible:ring-2 focus-visible:ring-buisgroen focus-visible:ring-offset-2 focus-visible:ring-offset-antraciet-900 outline-none',

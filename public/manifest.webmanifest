@@ -1,0 +1,21 @@
+{
+  "name": "Buisz · IPTV",
+  "short_name": "Buisz",
+  "description": "Netflix-stijl IPTV-player voor je eigen M3U-playlists en Xtream-account.",
+  "lang": "nl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0c1012",
+  "theme_color": "#13181b",
+  "categories": ["entertainment", "video"],
+  "icons": [
+    {
+      "src": "/buisz.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import type { Catalog } from '../types/content'
 import type { Source } from '../types/source'
 import { DEMO_SOURCE } from '../types/source'
 import { demoCatalog, loadCatalog } from '../api/catalog'
+import { loadAndApplyEpg } from '../api/epg'
 
 const STORAGE_KEY = 'buisz.source'
 
@@ -64,6 +65,13 @@ export function useCatalog(): UseCatalog {
       setCatalog(result)
       setSourceState(next)
       storeSource(next)
+
+      // EPG op de achtergrond toepassen (live nu/straks) — niet-blokkerend.
+      if (result.epgUrl) {
+        void loadAndApplyEpg(result, Date.now(), controller.signal).then((withEpg) => {
+          if (!controller.signal.aborted && withEpg !== result) setCatalog(withEpg)
+        })
+      }
     } catch (err) {
       if (controller.signal.aborted) return
       setError((err as Error).message || 'Laden van de bron mislukt.')

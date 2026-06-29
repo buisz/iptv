@@ -8,11 +8,14 @@ Een **IPTV-player** in Netflix-stijl voor je eigen **M3U/M3U8-playlists** en de
 > Xtream-inloggegevens). Er is geen koppeling met of distributie van illegale
 > contentbronnen.
 
-## Status: fase 2 — werkende client
+## Status: fase 3 — distributie (box-first)
 
-De Netflix-stijl UI uit fase 1 is nu gekoppeld aan echte bronnen. Standaard start
-de app met **demodata** (`src/data/mockContent.ts`); via **Bron toevoegen** (rechtsboven)
-laad je je eigen **M3U-playlist**, **M3U-bestand** of **Xtream-account**.
+De Netflix-stijl UI uit fase 1 is gekoppeld aan echte bronnen (fase 2), en fase 3
+maakt 'm klaar voor een **externe box** (Android TV / Fire Stick / Apple TV via HDMI):
+EPG (nu/straks), afstandsbediening-navigatie incl. back-knop, installeerbaarheid (PWA),
+en een productie-proxy voor web-deploys. Standaard start de app met **demodata**
+(`src/data/mockContent.ts`); via **Bron toevoegen** (rechtsboven) laad je je eigen
+**M3U-playlist**, **M3U-bestand** of **Xtream-account**.
 
 ### Aan de slag
 
@@ -24,8 +27,10 @@ npm run dev      # start op http://localhost:5173
 Andere scripts:
 
 ```bash
-npm run build    # type-check (tsc) + productie-build
-npm run preview  # bekijk de productie-build lokaal
+npm run build        # type-check (tsc) + productie-build
+npm run preview      # bekijk de productie-build lokaal
+npm run build:proxy  # build met de productie-proxy ingeschakeld (VITE_PROXY_BASE=/__proxy)
+npm run serve        # serveer dist/ + /__proxy met server/proxy.mjs (poort 4173)
 ```
 
 ### Een bron laden
@@ -71,10 +76,20 @@ De bron wordt lokaal bewaard (`localStorage`); Xtream-gegevens verlaten je appar
   native fallback; libs worden lui geladen (aparte chunks).
 - **`components/SourceModal.tsx`** — scherm om een bron te kiezen/laden.
 
+**Distributie (fase 3):**
+
+- **`api/epg.ts`** — XMLTV-parser; toont "nu/straks" op live-kanalen (poster +
+  detail) op basis van `x-tvg-url` of een opgegeven EPG-URL.
+- **`server/proxy.mjs`** — productie-server: serveert `dist/` + dezelfde
+  `/__proxy` CORS-proxy, zodat web-deploys ook met echte bronnen werken.
+- **PWA-manifest** (`public/manifest.webmanifest`) — fullscreen, installeerbaar op
+  een box of telefoon.
+
 ### Bediening / TV-navigatie
 
-- **Pijltjestoetsen** navigeren door de poster-rijen (spatial navigation), **Enter**
-  opent het detailvenster, **Esc** sluit het. Werkt zo ook met een afstandsbediening.
+- **Pijltjestoetsen** navigeren door de poster-rijen (spatial navigation); **omhoog**
+  vanaf de bovenste rij springt naar de navigatiebalk. **Enter** opent, **Esc** of
+  **Backspace** (de back-knop van een afstandsbediening) sluit de bovenste overlay.
 - Zichtbare focus-highlight, responsive tot mobiel, en `prefers-reduced-motion`
   wordt gerespecteerd.
 
@@ -97,27 +112,40 @@ Tokens staan in `src/styles/tokens.css` en `tailwind.config.js`.
 
 ```
 src/
-  api/          xtream.ts, m3u.ts, tmdb.ts, catalog.ts, proxy.ts
+  api/          xtream.ts, m3u.ts, tmdb.ts, epg.ts, catalog.ts, proxy.ts
   components/   NavBar, HeroBanner, ContentRow, PosterCard, DetailOverlay,
                 SourceModal, Player
   data/         mockContent.ts   — demodata (demo-bron)
   hooks/        useSpatialNav.ts — pijltjes-/remote-navigatie
-                useCatalog.ts    — actieve bron + catalogus + persistentie
+                useCatalog.ts    — actieve bron + catalogus + EPG + persistentie
   styles/       tokens.css       — Buisz-kleur/type-tokens
   types/        content.ts       — bron-agnostische content-typen
                 source.ts        — bron-configuratie
   App.tsx
   main.tsx
+server/
+  proxy.mjs     — productie-server + CORS-proxy
 ```
 
-## Volgende fase
+## Distributie naar een box (box-first)
 
-- **Fase 3 — distributie:** verpakken voor een externe box (Android TV-box /
-  Fire Stick / Apple TV via HDMI) in plaats van losse native TV-platforms. Reden:
-  oude én nieuwe TV's worden zo met dezelfde app bediend, en de box levert de
-  moderne codecs (HEVC/HLS/MPEG-TS) die veel oude TV's missen. Daarbij hoort ook
-  een productie-proxy of native netwerklaag (zodat CORS geen rol meer speelt) en
-  EPG-weergave (XMLTV) op basis van de reeds geparste `x-tvg-url`.
+Waarom een externe box i.p.v. native apps per TV: oude én nieuwe TV's worden zo met
+**één codebase** bediend, en de box levert de moderne codecs (HEVC/HLS/MPEG-TS) die
+veel oude TV's missen. Op de box draait de app in een moderne WebView/Chromium.
+
+**Web / self-host (werkt nu):**
+
+```bash
+npm run build:proxy   # client bouwt met /__proxy als CORS-proxy
+npm run serve         # http://localhost:4173  (serveert dist/ + /__proxy)
+```
+
+**Android TV / Fire TV (volgende concrete stap):** verpak de web-app in een dunne
+schil. Aanbevolen: **Capacitor** (native WebView) met een native HTTP-laag
+(bijv. `@capacitor/http`) zodat CORS volledig wegvalt en streams rechtstreeks
+spelen; alternatief is een **TWA**. De D-pad-navigatie en back-knop werken al.
+> Dit native verpakken vereist de Android SDK/Gradle en is nog niet in deze repo
+> gescaffold — het is de eerstvolgende stap, niet iets dat hier al gebouwd is.
 
 ## Tech
 

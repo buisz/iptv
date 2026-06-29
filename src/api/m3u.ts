@@ -121,6 +121,7 @@ function toMediaItem(track: M3uTrack, index: number, kind: MediaKind): MediaItem
     genres: track.group ? [track.group] : [],
     isLiveNow: kind === 'live' ? true : undefined,
     streamUrl: track.url,
+    epgChannelId: kind === 'live' ? track.tvgId : undefined,
     synopsis: '',
   }
 }

@@ -123,6 +123,7 @@ function mapLive(s: XtreamSource, c: XtreamLive): MediaItem {
     genres: [],
     isLiveNow: true,
     streamUrl: liveStreamUrl(s, c.stream_id),
+    epgChannelId: c.epg_channel_id || undefined,
     synopsis: '',
   }
 }

@@ -1,12 +1,19 @@
 /**
- * Routeert externe verzoeken in dev via de lokale CORS-proxy (zie vite.config.ts).
+ * Routeert externe verzoeken via een CORS-proxy.
  *
- * In productie (verpakte box-app) is er geen browser-CORS-restrictie en gaat het
- * verkeer rechtstreeks. Daarom wordt alleen in dev herschreven.
+ * - In dev: via de Vite-middleware op `/__proxy` (zie vite.config.ts).
+ * - In productie (web): via `VITE_PROXY_BASE` indien gezet — bijv. `/__proxy`
+ *   wanneer je achter `server/proxy.mjs` draait.
+ * - Op de doel-box met native netwerklaag is er geen browser-CORS en kan
+ *   `VITE_PROXY_BASE` leeg blijven; dan gaat het verkeer rechtstreeks.
  */
 export function proxied(url: string): string {
   if (import.meta.env.DEV) {
     return `/__proxy?url=${encodeURIComponent(url)}`
+  }
+  const base = import.meta.env.VITE_PROXY_BASE
+  if (base) {
+    return `${base}?url=${encodeURIComponent(url)}`
   }
   return url
 }

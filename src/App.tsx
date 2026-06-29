@@ -35,6 +35,28 @@ export default function App() {
 
   useEffect(() => setNoticesDismissed(false), [catalog])
 
+  // Back-knop (afstandsbediening → Backspace) sluit de bovenste overlay.
+  useEffect(() => {
+    function onBack(e: KeyboardEvent) {
+      if (e.key !== 'Backspace') return
+      const t = e.target as HTMLElement | null
+      const editing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      if (editing) return
+      if (playing) {
+        e.preventDefault()
+        setPlaying(null)
+      } else if (sourceOpen) {
+        e.preventDefault()
+        setSourceOpen(false)
+      } else if (selected) {
+        e.preventDefault()
+        setSelected(null)
+      }
+    }
+    window.addEventListener('keydown', onBack)
+    return () => window.removeEventListener('keydown', onBack)
+  }, [playing, sourceOpen, selected])
+
   // Pijltjesnavigatie staat uit zolang een overlay open is.
   useSpatialNav(selected === null && !sourceOpen && playing === null)
 

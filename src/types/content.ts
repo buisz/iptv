@@ -55,6 +55,21 @@ export interface MediaItem {
   ref?: { kind: 'xtream-series' | 'xtream-vod'; id: string | number }
   /** Of TMDB-verrijking al is toegepast op dit item. */
   enriched?: boolean
+
+  // ── Fase 3: EPG (XMLTV) voor live-kanalen ──
+  /** EPG-kanaal-id (Xtream `epg_channel_id` of M3U `tvg-id`). */
+  epgChannelId?: string
+  /** Programma dat nu loopt. */
+  epgNow?: EpgEntry
+  /** Eerstvolgende programma. */
+  epgNext?: EpgEntry
+}
+
+/** Eén EPG-uitzending (tijden in ms sinds epoch). */
+export interface EpgEntry {
+  title: string
+  start: number
+  stop: number
 }
 
 export interface ContentRowData {

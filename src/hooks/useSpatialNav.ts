@@ -56,6 +56,10 @@ export function useSpatialNav(enabled: boolean) {
             const bd = Math.abs(Number(best.dataset.col) - col)
             return d < bd ? el : best
           })
+        } else if (e.key === 'ArrowUp' && row === 0) {
+          // Vanaf de bovenste rij omhoog → spring naar de navigatiebalk.
+          const navItems = Array.from(document.querySelectorAll<HTMLElement>('[data-nav-top]'))
+          target = navItems.find((el) => el.getAttribute('aria-current') === 'page') ?? navItems[0] ?? null
         }
       }
 
