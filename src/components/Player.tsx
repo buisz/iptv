@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MediaKind } from '../types/content'
+import { castMedia, initCast, onCastAvailability } from '../api/cast'
 
 export interface PlayRequest {
   title: string
@@ -23,26 +24,44 @@ function isMpegTs(url: string): boolean {
   return /\.ts(\?|$)/i.test(url) || /\/live\//i.test(url) || /\/\d+$/.test(url)
 }
 
-// Remote Playback API beschikbaar? (Chrome/Cast, Android-WebView met Cast.)
-const CAN_CAST =
-  typeof HTMLMediaElement !== 'undefined' && 'remote' in HTMLMediaElement.prototype
-
 export default function Player({ request, onClose }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const cleanupRef = useRef<() => void>(() => {})
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
+  // Chromecast (CAF) beschikbaar in deze browser? AirPlay (WebKit) beschikbaar?
+  const [castAvailable, setCastAvailable] = useState(false)
+  const [airplayAvailable, setAirplayAvailable] = useState(false)
 
-  // Opent de cast-/remote-playback-kiezer (Chromecast/Google TV).
-  function cast() {
-    const remote = videoRef.current?.remote
-    // prompt() faalt als er geen apparaten zijn — stil opvangen.
-    remote?.prompt?.().catch(() => {})
+  // Chromecast — CAF Web Sender: alleen actief in echte Chrome-browsers.
+  function castNow() {
+    if (request?.url) void castMedia(request.url, request.title)
   }
 
-  // AirPlay toestaan op Safari/iOS (toont de native AirPlay-knop in de controls).
+  // AirPlay — moet SYNCHROON in de click-handler (anders verliest het de gesture).
+  function airplayNow() {
+    const v = videoRef.current as unknown as { webkitShowPlaybackTargetPicker?: () => void }
+    v?.webkitShowPlaybackTargetPicker?.()
+  }
+
+  // Cast-SDK laden + beschikbaarheid volgen (no-op in WebView/Safari).
   useEffect(() => {
-    videoRef.current?.setAttribute('x-webkit-airplay', 'allow')
+    initCast()
+    return onCastAvailability(setCastAvailable)
+  }, [])
+
+  // AirPlay toestaan + beschikbaarheid van een AirPlay-doel volgen (WebKit-only).
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    v.setAttribute('x-webkit-airplay', 'allow')
+    const onAvail = (e: Event) => {
+      const availability = (e as unknown as { availability?: string }).availability
+      setAirplayAvailable(availability === 'available')
+    }
+    v.addEventListener('webkitplaybacktargetavailabilitychanged', onAvail as EventListener)
+    return () =>
+      v.removeEventListener('webkitplaybacktargetavailabilitychanged', onAvail as EventListener)
   }, [request])
 
   // Escape sluit; body-scroll vergrendelen zolang open.
@@ -169,10 +188,23 @@ export default function Player({ request, onClose }: PlayerProps) {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {request.url && CAN_CAST && (
+          {request.url && airplayAvailable && (
             <button
-              onClick={cast}
-              aria-label="Casten naar tv/Chromecast"
+              onClick={airplayNow}
+              aria-label="AirPlay"
+              title="AirPlay (Apple TV / AirPlay-2-tv)"
+              className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-mist transition-colors hover:bg-white/20 hover:text-buisgroen focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+            >
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 17H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-1" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="m12 15 5 6H7l5-6Z" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+          {request.url && castAvailable && (
+            <button
+              onClick={castNow}
+              aria-label="Casten naar Chromecast/Google TV"
               title="Casten (Chromecast / Google TV)"
               className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-mist transition-colors hover:bg-white/20 hover:text-buisgroen focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
             >

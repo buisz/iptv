@@ -139,6 +139,39 @@ basis voor alle pakketten.
 - **Bundle-grootte**: de legacy-polyfills + `hls.js`/`mpegts.js` maken de legacy-
   chunks fors. Ze laden lui, maar voor de zwakste tier blijft geheugen het risico.
 
+## Casten (Chromecast / AirPlay)
+
+De juiste aanpak verschilt per omgeving — dat is precies waarom casten in dit soort
+apps vaak "niet werkt". Wat er nu is en wat nog nodig is:
+
+**✅ Werkt nu (web, geen native code) — `src/api/cast.ts` + `Player.tsx`:**
+- **Chromecast/Google TV** in een échte Chrome-browser (desktop + Android Chrome) via
+  de CAF Web Sender SDK met de Default Media Receiver (`CC1AD845` — geen eigen
+  receiver nodig). De cast-knop verschijnt alleen als er een apparaat beschikbaar is.
+- **AirPlay** in Safari/iOS: op Safari wint native HLS (geen `hls.js`), waardoor het
+  `<video>` AirPlay-baar is; eigen AirPlay-knop via `webkitShowPlaybackTargetPicker()`
+  (synchroon in de klik) die verschijnt zodra er een AirPlay-doel is.
+
+**⚠️ Vereist native werk + test op een echt toestel:**
+- **Chromecast vanuit de Android-app (Capacitor WebView)** werkt **niet** met de
+  web-SDK — een plain System WebView heeft geen Cast-stack. Nodig: een **native Cast
+  bridge**. Er is **geen onderhouden Cast-plugin voor Capacitor 6**; de route is:
+  upgrade naar **Capacitor 7** + `@caprockapps/capacitor-chromecast@7.0.6`
+  (of een kleine eigen plugin), `play-services-cast-framework` in Gradle, een
+  `OptionsProvider` + `OPTIONS_PROVIDER_CLASS_NAME`-meta-data in het manifest,
+  `minSdk ≥ 27`. Alleen te valideren op een toestel met Google Play Services + een
+  echte Chromecast.
+- **AirPlay in-app op iOS** vereist een `ios/`-target (`npx cap add ios`); de WKWebView
+  erft dan de WebKit-AirPlay-API automatisch (mits bovenstaande web-flow). Native
+  `AVRoutePickerView` is alleen nodig voor FairPlay-DRM/lockscreen-controle.
+
+**Belangrijke valkuilen (gelden voor beide):** HTTPS overal verplicht (pagina én
+stream; mixed content blokkeert de knop); het Cast/AirPlay-apparaat moet de stream-URL
+**zelf** kunnen bereiken en app-auth-headers/cookies gaan **niet** mee (pijnpunt bij
+Xtream/proxy-streams → vaak een publieke/HLS-herschreven URL of eigen receiver nodig);
+rauwe **MPEG-TS** (Xtream-live zonder `.m3u8`) heeft geen betrouwbaar Cast/AirPlay-pad
+— lever HLS aan.
+
 ## Beveiliging & dependencies
 
 `npm install` kan veel `npm audit`-meldingen tonen, maar die komen vrijwel allemaal
