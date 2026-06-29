@@ -131,27 +131,39 @@ src/
   main.tsx
 server/
   proxy.mjs     — productie-server + CORS-proxy
+platforms/      — Tizen config.xml, webOS appinfo.json, iconen
+scripts/        — gen-icons, package-tizen, package-webos
+android/        — Capacitor Android TV-schil (TV-manifest)
 ```
 
-## Distributie naar een box (box-first)
+## Distributie (box-first, breed inzetbaar)
 
-Waarom een externe box i.p.v. native apps per TV: oude én nieuwe TV's worden zo met
-**één codebase** bediend, en de box levert de moderne codecs (HEVC/HLS/MPEG-TS) die
-veel oude TV's missen. Op de box draait de app in een moderne WebView/Chromium.
-
-**Web / self-host (werkt nu):**
+Eén web-app, per platform verpakt. Volledige onderbouwing + support-matrix:
+**[`docs/platforms.md`](docs/platforms.md)**.
 
 ```bash
-npm run build:proxy   # client bouwt met /__proxy als CORS-proxy
-npm run serve         # http://localhost:4173  (serveert dist/ + /__proxy)
+# Web / self-host (externe box of browser)
+npm run build:proxy && npm run serve   # http://localhost:4173 (dist/ + /__proxy)
+
+# Samsung Tizen  → build/buisz.wgt  (ongetekend; signeren via Tizen Studio)
+npm run package:tizen
+
+# LG webOS       → build/app.buisz.iptv_*.ipk  (via ares-package)
+npm run package:webos
+
+# Android TV / Google TV / Fire OS  → Capacitor-schil in android/
+npm run android:sync     # kopieert de web-build naar de schil
+npm run android:open     # verder bouwen met Android Studio + Android SDK/Gradle
 ```
 
-**Android TV / Fire TV (volgende concrete stap):** verpak de web-app in een dunne
-schil. Aanbevolen: **Capacitor** (native WebView) met een native HTTP-laag
-(bijv. `@capacitor/http`) zodat CORS volledig wegvalt en streams rechtstreeks
-spelen; alternatief is een **TWA**. De D-pad-navigatie en back-knop werken al.
-> Dit native verpakken vereist de Android SDK/Gradle en is nog niet in deze repo
-> gescaffold — het is de eerstvolgende stap, niet iets dat hier al gebouwd is.
+De Tizen/webOS-pakketten en de Capacitor-schil worden gegenereerd uit dezelfde
+web-build. De **APK zelf** bouw je met de Android SDK/Gradle (lokaal, niet in deze
+repo-build). De `android/`-`AndroidManifest.xml` is al voor TV ingericht
+(`LEANBACK_LAUNCHER`, `android:banner`, touch/leanback `required="false"`).
+
+> Waarom box-first: oude én nieuwe TV's met **één codebase**, en de box levert de
+> moderne codecs (HEVC/HLS/MPEG-TS) die veel oude TV's missen. Voor te oude TV's is
+> de externe box de aanbevolen route i.p.v. bevroren engines najagen.
 
 ## Tech
 

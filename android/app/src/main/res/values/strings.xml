@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Buisz</string>
+    <string name="title_activity_main">Buisz</string>
+    <string name="package_name">app.buisz.iptv</string>
+    <string name="custom_url_scheme">app.buisz.iptv</string>
+</resources>

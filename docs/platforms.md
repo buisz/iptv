@@ -100,18 +100,32 @@ Richtlijnen voor doorontwikkeling op zwakke hardware (krap RAM, trage SoC, agres
 
 ## Packaging-targets
 
-| Doel | Output | Tool | Status |
+| Doel | Output | Commando | Status |
 |---|---|---|---|
-| Web / self-host | `dist/` + `/__proxy` | `npm run build:proxy` + `npm run serve` | ✅ werkt |
-| Samsung Tizen | `.wgt` | Tizen Studio / `tizen` CLI (signeren met Samsung-cert) | 🔜 build is geschikt |
-| LG webOS | `.ipk` | webOS CLI (`ares-package`) | 🔜 build is geschikt |
-| Android TV / Fire OS | APK (WebView/Capacitor) | Android SDK + Gradle | 🔜 vereist native schil |
+| Web / self-host | `dist/` + `/__proxy` | `npm run build:proxy` && `npm run serve` | ✅ werkt |
+| Samsung Tizen | `.wgt` | `npm run package:tizen` | ✅ script (ongetekend; signeren via Tizen Studio) |
+| LG webOS | `.ipk` | `npm run package:webos` | ✅ script (`@webosose/ares-cli`) |
+| Android TV / Google TV / Fire OS | APK | `npm run android:sync` → Android Studio/Gradle | ✅ Capacitor-schil gescaffold (`android/`) |
 | Externe box | dezelfde APK / web | — | ✅ aanbevolen voor oude TV's |
 
-De web-build (`npm run build`) levert nu al **modern + ES5-legacy** in één keer; die
-output is de basis voor het `.wgt`/`.ipk`-pakket (statische `dist/` + een platform-
-manifest). De native Android-schil (Capacitor) is de eerstvolgende concrete stap en
-is bewust nog niet in de repo gescaffold (vereist Android SDK/Gradle).
+De web-build (`npm run build`) levert **modern + ES5-legacy** in één keer; dat is de
+basis voor alle pakketten.
+
+**Per platform bouwen:**
+
+- **Tizen** — `npm run package:tizen` bouwt met relatieve paden en zipt `dist/` +
+  `config.xml` tot `build/buisz.wgt`. Het pakket is **ongetekend**; voor installatie
+  op een toestel of store-inzending ondertekenen met een Samsung-certificaat
+  (`tizen package -t wgt -s <profiel> -- dist/`).
+- **webOS** — `npm run package:webos` draait `ares-package` → `build/app.buisz.iptv_*.ipk`.
+  Installeren met `ares-install` (TV in Developer Mode).
+- **Android TV / Fire OS** — de Capacitor-schil staat in `android/`. De
+  `AndroidManifest.xml` is al voor TV ingericht: `LEANBACK_LAUNCHER`-categorie,
+  `android:banner`, en `touchscreen`/`leanback` als `required="false"` (zodat de app
+  óók op telefoon/tablet installeert). `npm run android:sync` kopieert de nieuwste
+  web-build naar de schil; daarna `npm run android:open` (of `cap open android`) en
+  bouwen met **Android Studio + Android SDK/Gradle** (lokaal vereist; niet in deze
+  repo-build) tot een APK voor Google Play / Amazon Appstore / een box.
 
 ## Bekende beperkingen & onzekerheden
 
