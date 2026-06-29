@@ -5,6 +5,7 @@ import ContentRow from './components/ContentRow'
 import DetailOverlay from './components/DetailOverlay'
 import SourceModal from './components/SourceModal'
 import OnboardingWizard from './components/OnboardingWizard'
+import SearchOverlay from './components/SearchOverlay'
 import Player, { type PlayRequest } from './components/Player'
 import type { MediaItem } from './types/content'
 import type { Source } from './types/source'
@@ -39,6 +40,7 @@ export default function App() {
   const [selected, setSelected] = useState<MediaItem | null>(null)
   const [playing, setPlaying] = useState<PlayRequest | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
   // Versie-teller om "Verder kijken" te verversen nadat de speler sluit.
   const [cwVersion, setCwVersion] = useState(0)
@@ -73,6 +75,20 @@ export default function App() {
     return continueRow ? [continueRow, ...base] : base
   }, [activeSection, continueRow])
 
+  // Alle unieke items uit de catalogus, voor zoeken.
+  const allItems = useMemo(() => {
+    const seen = new Set<string>()
+    const out = []
+    for (const sec of sections)
+      for (const row of sec.rows)
+        for (const item of row.items)
+          if (!seen.has(item.id)) {
+            seen.add(item.id)
+            out.push(item)
+          }
+    return out
+  }, [sections])
+
   // Houd de actieve sectie geldig wanneer de catalogus (bron) verandert.
   useEffect(() => {
     if (!sections.some((s) => s.key === activeKey)) {
@@ -92,6 +108,9 @@ export default function App() {
       if (playing) {
         e.preventDefault()
         setPlaying(null)
+      } else if (searchOpen) {
+        e.preventDefault()
+        setSearchOpen(false)
       } else if (sourceOpen) {
         e.preventDefault()
         setSourceOpen(false)
@@ -102,10 +121,12 @@ export default function App() {
     }
     window.addEventListener('keydown', onBack)
     return () => window.removeEventListener('keydown', onBack)
-  }, [playing, sourceOpen, selected])
+  }, [playing, sourceOpen, selected, searchOpen])
 
   // Pijltjesnavigatie staat uit zolang een overlay/wizard open is.
-  useSpatialNav(selected === null && !sourceOpen && playing === null && !wizardOpen)
+  useSpatialNav(
+    selected === null && !sourceOpen && playing === null && !wizardOpen && !searchOpen,
+  )
 
   function handleSelectSection(key: string) {
     setActiveKey(key)
@@ -181,6 +202,7 @@ export default function App() {
         sourceLabel={catalog.sourceLabel}
         loading={loading}
         onOpenSource={() => setSourceOpen(true)}
+        onSearch={() => setSearchOpen(true)}
       />
 
       <main>
@@ -239,6 +261,16 @@ export default function App() {
           </p>
         </footer>
       </main>
+
+      <SearchOverlay
+        open={searchOpen}
+        items={allItems}
+        onClose={() => setSearchOpen(false)}
+        onOpen={(item) => {
+          setSearchOpen(false)
+          openItem(item)
+        }}
+      />
 
       <DetailOverlay item={selected} onClose={() => setSelected(null)} onPlay={setPlaying} />
 

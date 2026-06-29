@@ -8,6 +8,7 @@ interface NavBarProps {
   sourceLabel: string
   loading: boolean
   onOpenSource: () => void
+  onSearch: () => void
 }
 
 function Logo() {
@@ -34,6 +35,7 @@ export default function NavBar({
   sourceLabel,
   loading,
   onOpenSource,
+  onSearch,
 }: NavBarProps) {
   const [scrolled, setScrolled] = useState(false)
 
@@ -97,6 +99,7 @@ export default function NavBar({
             <span className="hidden truncate sm:block">{sourceLabel}</span>
           </button>
           <button
+            onClick={onSearch}
             aria-label="Zoeken"
             className="grid h-10 w-10 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
           >
