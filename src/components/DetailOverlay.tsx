@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '../types/content'
+import type { PlayRequest } from './Player'
 
 interface DetailOverlayProps {
   item: MediaItem | null
   onClose: () => void
-  onPlay: (req: { title: string; url?: string; kind: MediaItem['kind'] }) => void
+  onPlay: (req: PlayRequest) => void
 }
 
 const kindLabel: Record<MediaItem['kind'], string> = {
@@ -89,7 +90,16 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
               </h2>
             </div>
             <button
-              onClick={() => onPlay({ title: item.title, url: item.streamUrl, kind: item.kind })}
+              onClick={() =>
+                onPlay({
+                  title: item.title,
+                  url: item.streamUrl,
+                  kind: item.kind,
+                  id: item.id,
+                  poster: item.poster,
+                  backdrop: item.backdrop,
+                })
+              }
               className="hidden shrink-0 items-center gap-2 rounded-full bg-buisgroen px-5 py-2.5 text-sm font-bold text-antraciet-900 shadow-glow transition-transform hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none sm:flex"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
@@ -104,7 +114,16 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
         <div className="space-y-6 p-6">
           {/* Afspeelknop (mobiel; desktop heeft de knop in de header) */}
           <button
-            onClick={() => onPlay({ title: item.title, url: item.streamUrl, kind: item.kind })}
+            onClick={() =>
+              onPlay({
+                title: item.title,
+                url: item.streamUrl,
+                kind: item.kind,
+                id: item.id,
+                poster: item.poster,
+                backdrop: item.backdrop,
+              })
+            }
             className="flex w-full items-center justify-center gap-2 rounded-full bg-buisgroen px-5 py-3 text-sm font-bold text-antraciet-900 shadow-glow outline-none focus-visible:ring-2 focus-visible:ring-buisgroen sm:hidden"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
@@ -226,6 +245,9 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
                           title: `${item.title} — ${ep.title}`,
                           url: ep.streamUrl,
                           kind: 'series',
+                          id: ep.id,
+                          poster: item.poster,
+                          backdrop: item.backdrop,
                         })
                       }
                       className="flex w-full items-center gap-4 p-3.5 text-left transition-colors hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-buisgroen outline-none"

@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MediaKind } from '../types/content'
 import { castMedia, initCast, onCastAvailability } from '../api/cast'
+import { resumePosition, saveProgress } from '../api/progress'
 
 export interface PlayRequest {
   title: string
   /** Directe afspeel-URL. Bij de demo-bron ontbreekt deze. */
   url?: string
   kind: MediaKind
+  /** Item-id voor "Verder kijken" (voortgang opslaan/hervatten). */
+  id?: string
+  poster?: string
+  backdrop?: string
 }
 
 interface PlayerProps {
@@ -62,6 +67,49 @@ export default function Player({ request, onClose }: PlayerProps) {
     v.addEventListener('webkitplaybacktargetavailabilitychanged', onAvail as EventListener)
     return () =>
       v.removeEventListener('webkitplaybacktargetavailabilitychanged', onAvail as EventListener)
+  }, [request])
+
+  // "Verder kijken": positie bewaren (throttled) + hervatten bij laden.
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v || !request?.id || request.kind === 'live') return
+    const id = request.id
+    const persist = () =>
+      saveProgress({
+        id,
+        kind: request.kind,
+        title: request.title,
+        poster: request.poster,
+        backdrop: request.backdrop,
+        streamUrl: request.url,
+        positionSec: v.currentTime,
+        durationSec: v.duration,
+      })
+
+    const onMeta = () => {
+      const pos = resumePosition(id)
+      if (pos && pos < v.duration - 5) {
+        try {
+          v.currentTime = pos
+        } catch {
+          /* seek niet mogelijk vóór buffer — negeer */
+        }
+      }
+    }
+    let last = 0
+    const onTime = () => {
+      const now = Date.now()
+      if (now - last < 5000) return
+      last = now
+      persist()
+    }
+    v.addEventListener('loadedmetadata', onMeta)
+    v.addEventListener('timeupdate', onTime)
+    return () => {
+      persist() // laatste positie bij sluiten/wisselen
+      v.removeEventListener('loadedmetadata', onMeta)
+      v.removeEventListener('timeupdate', onTime)
+    }
   }, [request])
 
   // Escape sluit; body-scroll vergrendelen zolang open.

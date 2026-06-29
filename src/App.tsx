@@ -12,6 +12,8 @@ import { useSpatialNav } from './hooks/useSpatialNav'
 import { useCatalog } from './hooks/useCatalog'
 import { enrichItem } from './api/tmdb'
 import { loadSeriesInfo } from './api/xtream'
+import { getContinueWatching } from './api/progress'
+import type { ContentRowData } from './types/content'
 
 const ONBOARDED_KEY = 'buisz.onboarded'
 
@@ -38,6 +40,8 @@ export default function App() {
   const [playing, setPlaying] = useState<PlayRequest | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
+  // Versie-teller om "Verder kijken" te verversen nadat de speler sluit.
+  const [cwVersion, setCwVersion] = useState(0)
   // Eerste keer (geen bewaarde bron én niet eerder afgerond): toon de wizard
   // verplicht. Daarna kan de wizard opnieuw geopend worden in "rondkijk"-modus.
   const [wizardOpen, setWizardOpen] = useState(() => !configured && !isOnboarded())
@@ -53,6 +57,21 @@ export default function App() {
     () => sections.find((s) => s.key === activeKey) ?? sections[0],
     [sections, activeKey],
   )
+
+  const isHome = activeKey === (sections[0]?.key ?? 'home')
+
+  // Echte "Verder kijken"-rij uit lokale voortgang (alleen op home, bovenaan).
+  const continueRow: ContentRowData | null = useMemo(() => {
+    if (!isHome) return null
+    const items = getContinueWatching()
+    return items.length ? { id: 'continue-watching', title: 'Verder kijken', items, showProgress: true } : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHome, cwVersion, catalog])
+
+  const rowsToRender = useMemo(() => {
+    const base = activeSection?.rows ?? []
+    return continueRow ? [continueRow, ...base] : base
+  }, [activeSection, continueRow])
 
   // Houd de actieve sectie geldig wanneer de catalogus (bron) verandert.
   useEffect(() => {
@@ -207,7 +226,7 @@ export default function App() {
           ].join(' ')}
           style={{ gap: 'var(--row-gap)' }}
         >
-          {activeSection?.rows.map((row, i) => (
+          {rowsToRender.map((row, i) => (
             <ContentRow key={row.id} row={row} rowIndex={i} onOpen={openItem} />
           ))}
         </div>
@@ -223,7 +242,13 @@ export default function App() {
 
       <DetailOverlay item={selected} onClose={() => setSelected(null)} onPlay={setPlaying} />
 
-      <Player request={playing} onClose={() => setPlaying(null)} />
+      <Player
+        request={playing}
+        onClose={() => {
+          setPlaying(null)
+          setCwVersion((v) => v + 1) // "Verder kijken" verversen
+        }}
+      />
 
       {/* Demo-modus: duidelijke, vaste CTA rechtsonder om de wizard te (her)openen. */}
       {source.kind === 'demo' && !wizardOpen && (
