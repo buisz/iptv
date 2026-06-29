@@ -2,5 +2,8 @@
 include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
 
+include ':capgo-capacitor-video-player'
+project(':capgo-capacitor-video-player').projectDir = new File('../node_modules/@capgo/capacitor-video-player/android')
+
 include ':caprockapps-capacitor-chromecast'
 project(':caprockapps-capacitor-chromecast').projectDir = new File('../node_modules/@caprockapps/capacitor-chromecast/android')

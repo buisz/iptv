@@ -23,6 +23,7 @@
     "@capacitor/android": "^7.6.7",
     "@capacitor/core": "^7.6.7",
     "@capacitor/ios": "^7.6.7",
+    "@capgo/capacitor-video-player": "^7.2.8",
     "@caprockapps/capacitor-chromecast": "^7.0.6",
     "hls.js": "^1.6.16",
     "mpegts.js": "^1.8.0",

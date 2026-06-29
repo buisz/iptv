@@ -4,6 +4,13 @@ import { castMedia, initCast, onCastAvailability } from '../api/cast'
 import { resumePosition, saveProgress } from '../api/progress'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { proxied } from '../api/proxy'
+import {
+  nativePlay,
+  nativeProgress,
+  nativeStop,
+  nativeVideoAvailable,
+  onNativeExit,
+} from '../api/player/nativeVideo'
 
 export interface PlayRequest {
   title: string
@@ -21,7 +28,7 @@ interface PlayerProps {
   onClose: () => void
 }
 
-type Status = 'idle' | 'loading' | 'playing' | 'error' | 'demo'
+type Status = 'idle' | 'loading' | 'playing' | 'error' | 'demo' | 'native'
 
 function isHls(url: string): boolean {
   return /\.m3u8(\?|$)/i.test(url)
@@ -31,9 +38,14 @@ function isMpegTs(url: string): boolean {
   return /\.ts(\?|$)/i.test(url) || /\/live\//i.test(url) || /\/\d+$/.test(url)
 }
 
+const NATIVE = nativeVideoAvailable()
+
 export default function Player({ request, onClose }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const cleanupRef = useRef<() => void>(() => {})
+  // Altijd de actuele onClose voor de native exit-callback.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
   // Chromecast (CAF) beschikbaar in deze browser? AirPlay (WebKit) beschikbaar?
@@ -141,6 +153,44 @@ export default function Player({ request, onClose }: PlayerProps) {
       setStatus('demo')
       return
     }
+
+    // Native app: speel af met de NATIVE speler (ExoPlayer/AVPlayer) — geen CORS,
+    // hardware-decoding. De native speler dekt het scherm; onze overlay zit erachter
+    // en sluit zodra de native speler dicht gaat.
+    if (NATIVE) {
+      setStatus('native')
+      const id = request.id
+      const kind = request.kind
+      const title = request.title
+      const poster = request.poster
+      const backdrop = request.backdrop
+      let unsub = () => {}
+      let interval: ReturnType<typeof setInterval> | undefined
+      void (async () => {
+        unsub = await onNativeExit(() => onCloseRef.current())
+        const startAt = id && kind !== 'live' ? resumePosition(id) : undefined
+        const ok = await nativePlay({ url, title, startAt })
+        if (!ok) {
+          setStatus('error')
+          setMessage('Native speler kon niet starten.')
+          return
+        }
+        if (id && kind !== 'live') {
+          interval = setInterval(async () => {
+            const pr = await nativeProgress()
+            if (pr)
+              saveProgress({ id, kind, title, poster, backdrop, streamUrl: url, positionSec: pr.position, durationSec: pr.duration })
+          }, 5000)
+        }
+      })()
+      cleanupRef.current = () => {
+        unsub()
+        if (interval) clearInterval(interval)
+        void nativeStop()
+      }
+      return
+    }
+
     if (!video) return
 
     let cancelled = false
@@ -286,9 +336,12 @@ export default function Player({ request, onClose }: PlayerProps) {
           playsInline
         />
 
-        {status === 'loading' && (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center">
+        {(status === 'loading' || status === 'native') && (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center gap-3 text-center">
             <span className="h-12 w-12 animate-spin rounded-full border-[3px] border-white/20 border-t-buisgroen" />
+            {status === 'native' && (
+              <span className="text-sm text-mist-400">Speelt af in de native speler…</span>
+            )}
           </div>
         )}
 

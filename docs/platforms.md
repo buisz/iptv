@@ -139,6 +139,25 @@ basis voor alle pakketten.
 - **Bundle-grootte**: de legacy-polyfills + `hls.js`/`mpegts.js` maken de legacy-
   chunks fors. Ze laden lui, maar voor de zwakste tier blijft geheugen het risico.
 
+## Afspelen (engine per platform)
+
+De afspeel-engine wordt per omgeving gekozen, zodat live-IPTV overal werkt zonder
+CORS-problemen:
+
+- **Browser** (`src/components/Player.tsx`): `<video>` voor VOD; `hls.js`/`mpegts.js`
+  voor HLS/MPEG-TS via de proxy (browser-sandbox vereist een proxy voor MSE-fetches).
+- **App (Android/iOS)** (`src/api/player/nativeVideo.ts`): de **native speler**
+  (ExoPlayer/AVPlayer via `@capgo/capacitor-video-player`). Geen CORS, hardware-
+  decoding, betere codec-ondersteuning. `Player.tsx` schakelt automatisch over op het
+  native pad zodra `Capacitor.isNativePlatform()` waar is; voortgang wordt
+  teruggekoppeld voor "Verder kijken".
+- **Tizen/webOS** (nog te doen): platform-native media (Tizen **AVPlay** / webOS
+  media-pipeline) i.p.v. mpegts.js — zelfde reden (geen CORS, lichter op oude engines).
+
+> `mpegts.js` is de beste *browser*-keuze voor rauwe MPEG-TS, maar op echte toestellen
+> wint de native speler. Functioneel afspelen in de app is alleen op een toestel te
+> valideren; CI bevestigt dat de APK bouwt.
+
 ## Casten (Chromecast / AirPlay)
 
 De juiste aanpak verschilt per omgeving — dat is precies waarom casten in dit soort
