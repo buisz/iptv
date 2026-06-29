@@ -5,6 +5,9 @@ interface NavBarProps {
   sections: CatalogSection[]
   activeKey: string
   onSelect: (key: string) => void
+  sourceLabel: string
+  loading: boolean
+  onOpenSource: () => void
 }
 
 function Logo() {
@@ -24,7 +27,14 @@ function Logo() {
   )
 }
 
-export default function NavBar({ sections, activeKey, onSelect }: NavBarProps) {
+export default function NavBar({
+  sections,
+  activeKey,
+  onSelect,
+  sourceLabel,
+  loading,
+  onOpenSource,
+}: NavBarProps) {
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -71,13 +81,19 @@ export default function NavBar({ sections, activeKey, onSelect }: NavBarProps) {
         </ul>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Bronkiezer — placeholder voor fase 2 (M3U / Xtream). */}
+          {/* Bronkiezer — opent het scherm om M3U / Xtream te laden. */}
           <button
-            className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-mist-400 transition-colors hover:text-mist hover:border-buisgroen/40 focus-visible:ring-2 focus-visible:ring-buisgroen outline-none sm:flex"
-            title="Bron toevoegen — beschikbaar in fase 2"
+            onClick={onOpenSource}
+            className="flex max-w-[14rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-2 text-sm font-medium text-mist-400 transition-colors hover:text-mist hover:border-buisgroen/40 focus-visible:ring-2 focus-visible:ring-buisgroen outline-none sm:px-3.5"
+            title="Bron toevoegen of wisselen"
           >
-            <span className="h-2 w-2 rounded-full bg-buisgroen animate-pulse-soft" />
-            Demo-bron
+            <span
+              className={[
+                'h-2 w-2 shrink-0 rounded-full bg-buisgroen',
+                loading ? 'animate-pulse-soft' : '',
+              ].join(' ')}
+            />
+            <span className="hidden truncate sm:block">{sourceLabel}</span>
           </button>
           <button
             aria-label="Zoeken"

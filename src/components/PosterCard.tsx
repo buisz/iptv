@@ -11,7 +11,10 @@ interface PosterCardProps {
 
 export default function PosterCard({ item, row, col, showProgress, onOpen }: PosterCardProps) {
   const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
   const isLive = item.kind === 'live'
+  const src = isLive ? item.backdrop : item.poster
+  const hasImage = Boolean(src) && !failed
 
   return (
     <button
@@ -30,24 +33,34 @@ export default function PosterCard({ item, row, col, showProgress, onOpen }: Pos
         isLive ? 'aspect-video w-[260px] sm:w-[300px]' : 'aspect-[2/3] w-[150px] sm:w-[176px]',
       ].join(' ')}
     >
-      {/* Achtergrondgloed-fallback terwijl de afbeelding laadt. */}
+      {/* Achtergrondgloed-fallback terwijl de afbeelding laadt of ontbreekt. */}
       <div
         className={[
           'absolute inset-0 bg-gradient-to-br from-diepteal-600/40 to-antraciet-700 transition-opacity duration-500',
-          loaded ? 'opacity-0' : 'opacity-100 animate-pulse-soft',
+          loaded ? 'opacity-0' : hasImage ? 'opacity-100 animate-pulse-soft' : 'opacity-100',
         ].join(' ')}
       />
 
-      <img
-        src={isLive ? item.backdrop : item.poster}
-        alt=""
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        className={[
-          'h-full w-full object-cover transition-[opacity,transform] duration-500',
-          loaded ? 'opacity-100' : 'opacity-0',
-        ].join(' ')}
-      />
+      {/* Titel groot in beeld wanneer er geen logo/poster is. */}
+      {!hasImage && (
+        <div className="absolute inset-0 grid place-items-center p-3 text-center">
+          <span className="line-clamp-3 text-sm font-bold text-mist/90">{item.title}</span>
+        </div>
+      )}
+
+      {hasImage && (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={[
+            'h-full w-full object-cover transition-[opacity,transform] duration-500',
+            loaded ? 'opacity-100' : 'opacity-0',
+          ].join(' ')}
+        />
+      )}
 
       {/* Onderscrim voor leesbaarheid van titels/badges. */}
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-antraciet-900/95 via-antraciet-900/40 to-transparent" />

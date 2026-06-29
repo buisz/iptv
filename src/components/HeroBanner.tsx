@@ -34,7 +34,11 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
     <section className="relative h-[78vh] min-h-[560px] w-full">
       {/* Achtergrondbeeld */}
       <div className="absolute inset-0">
-        <img src={item.backdrop} alt="" className="h-full w-full object-cover object-top" />
+        {item.backdrop ? (
+          <img src={item.backdrop} alt="" className="h-full w-full object-cover object-top" />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-diepteal-600/50 via-antraciet-800 to-antraciet-900" />
+        )}
         {/* Scrims: links voor tekst, onder voor overgang naar de rijen. */}
         <div className="absolute inset-0 bg-gradient-to-r from-antraciet-900 via-antraciet-900/70 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-antraciet-900 via-antraciet-900/30 to-transparent" />
