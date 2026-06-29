@@ -1,0 +1,15 @@
+{
+  "id": "app.buisz.iptv",
+  "version": "0.1.0",
+  "vendor": "Buisz",
+  "type": "web",
+  "main": "index.html",
+  "title": "Buisz",
+  "appDescription": "Netflix-stijl IPTV-player voor je eigen M3U-playlists en Xtream-account.",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0c1012",
+  "iconColor": "#34e3a8",
+  "disableBackHistoryAPI": true,
+  "supportTouchMode": "none"
+}

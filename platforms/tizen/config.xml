@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Samsung Tizen TV web-app manifest.
+  required_version 3.0 = modeljaren 2017+ (Chromium M47), onze ondergrens.
+  De app draait op file:// — de Vite-build moet met VITE_BASE=./ gebouwd zijn.
+-->
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="https://buisz.app/iptv"
+        version="0.1.0"
+        viewmodes="maximized">
+  <tizen:application id="Buiszipl01.Buisz" package="Buiszipl01" required_version="3.0"/>
+  <name>Buisz</name>
+  <description>Netflix-stijl IPTV-player voor je eigen M3U-playlists en Xtream-account.</description>
+  <author email="rbuys99@gmail.com">Buisz</author>
+  <content src="index.html"/>
+  <icon src="icon.png"/>
+
+  <tizen:profile name="tv"/>
+
+  <!-- Netwerk: M3U/Xtream/EPG/TMDB worden van externe hosts geladen. -->
+  <access origin="*" subdomains="true"/>
+  <tizen:allow-navigation>*</tizen:allow-navigation>
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+
+  <!-- Werkt op alle schermformaten/resoluties. -->
+  <feature name="http://tizen.org/feature/screen.size.all"/>
+
+  <tizen:setting screen-orientation="landscape"
+                 context-menu="disable"
+                 background-support="disable"
+                 encryption="disable"
+                 install-location="auto"/>
+</widget>

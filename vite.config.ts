@@ -45,6 +45,9 @@ function devProxy(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Voor web/box (geserveerd vanaf root) is '/' goed; packaged Tizen/webOS-apps
+  // draaien op file:// en hebben relatieve paden nodig → VITE_BASE=./ bij die builds.
+  base: process.env.VITE_BASE || '/',
   plugins: [
     react(),
     // ES5/legacy-bundel voor oude TV-engines (Tizen 3.0/Chromium M47,
