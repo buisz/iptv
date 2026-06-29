@@ -4,4 +4,6 @@
     <string name="title_activity_main">Buisz</string>
     <string name="package_name">app.buisz.iptv</string>
     <string name="custom_url_scheme">app.buisz.iptv</string>
+    <!-- Cast-receiver: Default Media Receiver (geen eigen receiver nodig). -->
+    <string name="app_id">CC1AD845</string>
 </resources>

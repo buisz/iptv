@@ -152,15 +152,15 @@ apps vaak "niet werkt". Wat er nu is en wat nog nodig is:
   `<video>` AirPlay-baar is; eigen AirPlay-knop via `webkitShowPlaybackTargetPicker()`
   (synchroon in de klik) die verschijnt zodra er een AirPlay-doel is.
 
-**⚠️ Vereist native werk + test op een echt toestel:**
-- **Chromecast vanuit de Android-app (Capacitor WebView)** werkt **niet** met de
-  web-SDK — een plain System WebView heeft geen Cast-stack. Nodig: een **native Cast
-  bridge**. Er is **geen onderhouden Cast-plugin voor Capacitor 6**; de route is:
-  upgrade naar **Capacitor 7** + `@caprockapps/capacitor-chromecast@7.0.6`
-  (of een kleine eigen plugin), `play-services-cast-framework` in Gradle, een
-  `OptionsProvider` + `OPTIONS_PROVIDER_CLASS_NAME`-meta-data in het manifest,
-  `minSdk ≥ 27`. Alleen te valideren op een toestel met Google Play Services + een
-  echte Chromecast.
+**🛠️ Geïmplementeerd, maar nog te testen op een echt toestel:**
+- **Chromecast vanuit de Android-app**: het project is geüpgraded naar **Capacitor 7**
+  (minSdk 27) en gebruikt `@caprockapps/capacitor-chromecast` (bundelt
+  `play-services-cast-framework`, eigen `OptionsProvider` + manifest-meta-data). De
+  receiver is op de **Default Media Receiver** (`CC1AD845`) gezet via
+  `R.string.app_id`. `src/api/cast.ts` kiest automatisch het native pad in de app en
+  het CAF-web-pad in de browser. **Functioneel casten** is alleen te valideren op een
+  toestel met Google Play Services + een echte Chromecast op hetzelfde wifi; CI
+  bevestigt enkel dat de APK blíjft bouwen.
 - **AirPlay in-app op iOS** vereist een `ios/`-target (`npx cap add ios`); de WKWebView
   erft dan de WebKit-AirPlay-API automatisch (mits bovenstaande web-flow). Native
   `AVRoutePickerView` is alleen nodig voor FairPlay-DRM/lockscreen-controle.

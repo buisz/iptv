@@ -10,6 +10,8 @@
  * geregistreerd hoeft te worden. Beperking: geen DRM, geen custom request-headers.
  */
 
+import { Capacitor } from '@capacitor/core'
+
 // Minimale, losse typering voor de globale Cast-API's (geen extra @types nodig).
 declare global {
   interface Window {
@@ -19,17 +21,27 @@ declare global {
   }
 }
 
+// In de Capacitor-app (Android System WebView) werkt de web-SDK niet → native plugin.
+const NATIVE = Capacitor.isNativePlatform?.() ?? false
+
 let initialized = false
 let available = false
+let nativePlugin: { requestSession: () => Promise<void>; launchMedia: (u: string) => Promise<boolean> } | null = null
 const listeners = new Set<(a: boolean) => void>()
 
 function notify() {
   for (const l of listeners) l(available)
 }
 
-/** Laadt de CAF Sender SDK eenmalig (https/secure-context vereist). */
+/** Laadt het juiste Cast-pad eenmalig: native plugin in de app, anders CAF-web. */
 export function initCast(): void {
-  if (initialized || typeof window === 'undefined' || typeof document === 'undefined') return
+  if (initialized) return
+  if (NATIVE) {
+    initialized = true
+    void initNative()
+    return
+  }
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
   // Cast/Presentation API vereist een secure origin (https of localhost).
   if (!window.isSecureContext) return
   initialized = true
@@ -43,6 +55,23 @@ export function initCast(): void {
   script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1'
   script.async = true
   document.head.appendChild(script)
+}
+
+/** Native Chromecast (Capacitor Android) via @caprockapps/capacitor-chromecast. */
+async function initNative() {
+  try {
+    const mod = await import('@caprockapps/capacitor-chromecast')
+    const plugin = mod.Chromecast
+    nativePlugin = plugin as unknown as typeof nativePlugin
+    await plugin.initialize({})
+    // RECEIVER_LISTENER: { isAvailable } — toont/verbergt de cast-knop.
+    void plugin.addListener('RECEIVER_LISTENER', (e: { isAvailable?: boolean }) => {
+      available = Boolean(e?.isAvailable)
+      notify()
+    })
+  } catch {
+    nativePlugin = null
+  }
 }
 
 function setup() {
@@ -85,6 +114,16 @@ export function castContentType(url: string): string {
 
 /** Start (zo nodig) een sessie en laadt de media. Geeft true bij succes. */
 export async function castMedia(url: string, title?: string): Promise<boolean> {
+  if (NATIVE) {
+    if (!nativePlugin) return false
+    try {
+      await nativePlugin.requestSession() // opent de native device-kiezer
+      return await nativePlugin.launchMedia(url)
+    } catch {
+      return false
+    }
+  }
+
   const { cast, chrome } = window
   if (!cast?.framework || !chrome?.cast) return false
 
