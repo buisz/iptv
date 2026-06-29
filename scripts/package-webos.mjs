@@ -19,7 +19,11 @@ import { join } from 'node:path'
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'dist')
 const OUT = join(ROOT, 'build')
-const ARES = join(ROOT, 'node_modules/.bin/ares-package')
+
+// De webOS-CLI (@webosose/ares-cli) wordt NIET als vaste dependency geïnstalleerd:
+// hij sleept verouderde transitieve packages mee (request/ssh2/…) die bij elke
+// `npm install` als vulnerabilities verschijnen. We halen 'm on-demand via npx.
+const ARES_PKG = '@webosose/ares-cli@2.4.0'
 
 console.log('› Bouwen met relatieve paden (VITE_BASE=./)…')
 execFileSync('npm', ['run', 'build'], {
@@ -35,9 +39,11 @@ copyFileSync(join(ROOT, 'platforms/webos/largeIcon.png'), join(DIST, 'largeIcon.
 
 mkdirSync(OUT, { recursive: true })
 
-console.log('› ares-package draaien…')
+console.log('› ares-package draaien (CLI wordt zo nodig via npx opgehaald)…')
 // --no-minify: ares minify't standaard, maar onze build is al geminificeerd.
-execFileSync(ARES, [DIST, '-o', OUT, '--no-minify'], { stdio: 'inherit' })
+execFileSync('npx', ['--yes', '--package', ARES_PKG, 'ares-package', DIST, '-o', OUT, '--no-minify'], {
+  stdio: 'inherit',
+})
 
 console.log(`\n✓ webOS-pakket staat in ${OUT}/ (app.buisz.iptv_0.1.0_all.ipk)`)
 console.log('  Installeren: ares-install build/app.buisz.iptv_0.1.0_all.ipk')

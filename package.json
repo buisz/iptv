@@ -32,7 +32,6 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-legacy": "^5.4.3",
     "@vitejs/plugin-react": "^4.3.4",
-    "@webosose/ares-cli": "^2.4.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "regenerator-runtime": "^0.14.1",

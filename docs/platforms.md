@@ -104,7 +104,7 @@ Richtlijnen voor doorontwikkeling op zwakke hardware (krap RAM, trage SoC, agres
 |---|---|---|---|
 | Web / self-host | `dist/` + `/__proxy` | `npm run build:proxy` && `npm run serve` | ✅ werkt |
 | Samsung Tizen | `.wgt` | `npm run package:tizen` | ✅ script (ongetekend; signeren via Tizen Studio) |
-| LG webOS | `.ipk` | `npm run package:webos` | ✅ script (`@webosose/ares-cli`) |
+| LG webOS | `.ipk` | `npm run package:webos` | ✅ script (`ares-cli` via npx, on-demand) |
 | Android TV / Google TV / Fire OS | APK | `npm run android:sync` → Android Studio/Gradle | ✅ Capacitor-schil gescaffold (`android/`) |
 | Externe box | dezelfde APK / web | — | ✅ aanbevolen voor oude TV's |
 
@@ -138,6 +138,20 @@ basis voor alle pakketten.
   premium-OTT; oude toestellen missen moderne Widevine/PlayReady.
 - **Bundle-grootte**: de legacy-polyfills + `hls.js`/`mpegts.js` maken de legacy-
   chunks fors. Ze laden lui, maar voor de zwakste tier blijft geheugen het risico.
+
+## Beveiliging & dependencies
+
+`npm install` kan veel `npm audit`-meldingen tonen, maar die komen vrijwel allemaal
+uit **build-/dev-tooling**, niet uit de code die naar gebruikers wordt verstuurd.
+
+- **Productie-bundel: 0 vulnerabilities** (`npm audit --omit=dev`). De gepubliceerde
+  app bevat alleen React, `hls.js` en `mpegts.js` — geen van de gemelde packages.
+- De webOS-CLI (`@webosose/ares-cli`) sleepte ~43 verouderde transitieve packages mee
+  (`request`, `ssh2`, `form-data`, …). Die is daarom **geen vaste dependency** meer:
+  `npm run package:webos` haalt 'm on-demand via `npx`. Daardoor zakte de telling van
+  **48 → 5**, en die resterende 5 zitten in Vite/esbuild/terser/plugin-legacy — puur
+  build-time (o.a. de bekende esbuild dev-server-advisory die niet in productie speelt).
+- Controleer zelf: `npm audit --omit=dev` (shipt) vs `npm audit` (incl. build-tools).
 
 ## Bronnen
 
