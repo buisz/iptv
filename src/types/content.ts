@@ -45,6 +45,14 @@ export interface MediaItem {
   isLiveNow?: boolean
   /** Series: seizoenen → afleveringen. */
   seasons?: { seasonNumber: number; episodes: Episode[] }[]
+
+  // ── Fase 2: koppeling met echte bronnen ──
+  /** Directe afspeel-URL (live/film). Bij series zit de URL per aflevering. */
+  streamUrl?: string
+  /** Provider-referentie voor lui naladen (bijv. Xtream series_id / vod_id). */
+  ref?: { kind: 'xtream-series' | 'xtream-vod'; id: string | number }
+  /** Of TMDB-verrijking al is toegepast op dit item. */
+  enriched?: boolean
 }
 
 export interface ContentRowData {
@@ -60,4 +68,21 @@ export interface CatalogSection {
   key: string
   label: string
   rows: ContentRowData[]
+}
+
+/** Volledig geladen catalogus zoals de UI die consumeert. */
+export interface Catalog {
+  sections: CatalogSection[]
+  hero: MediaItem
+  /** Korte herkomstomschrijving voor de UI, bijv. "Xtream · host". */
+  sourceLabel: string
+  /** Optionele XMLTV-EPG-URL (M3U `x-tvg-url` of Xtream). */
+  epgUrl?: string
+  /** Niet-fatale meldingen, bijv. afgekapte rijen of overgeslagen items. */
+  notices?: string[]
+}
+
+/** Episode met afspeel-URL (fase 2). */
+export interface PlayableEpisode extends Episode {
+  streamUrl?: string
 }
