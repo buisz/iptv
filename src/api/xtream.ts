@@ -10,6 +10,7 @@
 import type { Catalog, ContentRowData, MediaItem } from '../types/content'
 import type { XtreamSource, LiveFormatPreset } from '../types/source'
 import { fetchJson } from './proxy'
+import { normalizeCodec, qualityFromName, resFromHeight } from './quality'
 
 // ── Limieten zodat zeer grote playlists de UI niet verstikken. ──
 const MAX_ROWS_PER_SECTION = 40
@@ -127,6 +128,7 @@ function mapLive(s: XtreamSource, c: XtreamLive): MediaItem {
     isLiveNow: true,
     streamUrl: liveStreamUrl(s, c.stream_id),
     epgChannelId: c.epg_channel_id || undefined,
+    quality: qualityFromName(c.name),
     synopsis: '',
   }
 }
@@ -144,6 +146,7 @@ function mapVod(s: XtreamSource, v: XtreamVod): MediaItem {
     genres: [],
     streamUrl: vodStreamUrl(s, v.stream_id, v.container_extension || 'mp4'),
     ref: { kind: 'xtream-vod', id: v.stream_id },
+    quality: qualityFromName(v.name),
     synopsis: '',
   }
 }
@@ -248,6 +251,42 @@ export async function loadSeriesInfo(
     })
   }
   return seasons.sort((a, b) => a.seasonNumber - b.seasonNumber)
+}
+
+// ── VOD-info (lui geladen bij openen detail) → accurate codec/resolutie ───────
+
+interface XtreamVodInfo {
+  info?: {
+    video?: {
+      codec_name?: string
+      height?: number | string
+      width?: number | string
+    }
+    bitrate?: number
+    duration_secs?: number
+  }
+}
+
+/**
+ * Haalt accurate codec/resolutie-metadata op voor één film via `get_vod_info`.
+ * Dit is de plek waar we de codec écht weten (FFprobe-velden van de provider) —
+ * resultaat krijgt `from: 'meta'` zodat de UI hier wél een hard oordeel mag geven.
+ */
+export async function loadVodQuality(
+  s: XtreamSource,
+  vodId: string | number,
+  signal?: AbortSignal,
+): Promise<MediaItem['quality'] | undefined> {
+  const data = await fetchJson<XtreamVodInfo>(
+    apiUrl(s, 'get_vod_info', { vod_id: vodId }),
+    signal,
+  )
+  const video = data.info?.video
+  if (!video) return undefined
+  const codec = normalizeCodec(video.codec_name)
+  const res = resFromHeight(Number(video.height))
+  if (!codec && !res) return undefined
+  return { codec, res, from: 'meta' }
 }
 
 /** Geeft de afspeel-URL voor één serie-aflevering. */

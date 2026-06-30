@@ -4,6 +4,7 @@ import type { PlayRequest } from './Player'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { isFavorite, toggleFavorite } from '../api/favorites'
 import { useT } from '../i18n'
+import PlayabilityBadge from './PlayabilityBadge'
 
 interface DetailOverlayProps {
   item: MediaItem | null
@@ -176,7 +177,15 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
                 <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse-soft" /> Live nu
               </span>
             )}
+            {item.quality?.res && (
+              <span className="rounded border border-white/20 px-1.5 py-0.5 text-xs uppercase">
+                {item.quality.res === '4k' ? '4K' : item.quality.res.toUpperCase()}
+              </span>
+            )}
           </div>
+
+          {/* Afspeelbaarheid op dit apparaat (codec × hardware) */}
+          <PlayabilityBadge item={item} variant="inline" />
 
           {item.synopsis && (
             <p className="max-w-2xl text-balance text-[15px] leading-relaxed text-mist-500">

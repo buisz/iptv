@@ -15,7 +15,7 @@ import type { Source } from './types/source'
 import { useSpatialNav } from './hooks/useSpatialNav'
 import { useCatalog } from './hooks/useCatalog'
 import { enrichItem } from './api/tmdb'
-import { loadSeriesInfo } from './api/xtream'
+import { loadSeriesInfo, loadVodQuality } from './api/xtream'
 import { getContinueWatching } from './api/progress'
 import { getFavorites } from './api/favorites'
 import { useT } from './i18n'
@@ -182,6 +182,16 @@ export default function App() {
         enriched = { ...enriched, seasons }
       } catch {
         /* series-info optioneel — toon detail zonder afleveringen */
+      }
+    }
+
+    // Xtream-film: haal accurate codec/resolutie op (overschrijft de naam-heuristiek).
+    if (item.ref?.kind === 'xtream-vod' && enriched.quality?.from !== 'meta' && source.kind === 'xtream') {
+      try {
+        const quality = await loadVodQuality(source, item.ref.id)
+        if (quality) enriched = { ...enriched, quality }
+      } catch {
+        /* vod-info optioneel — val terug op naam-heuristiek */
       }
     }
 

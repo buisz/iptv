@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { MediaItem } from '../types/content'
+import PlayabilityBadge from './PlayabilityBadge'
 
 interface PosterCardProps {
   item: MediaItem
@@ -65,13 +66,16 @@ export default function PosterCard({ item, row, col, showProgress, onOpen }: Pos
       {/* Onderscrim voor leesbaarheid van titels/badges. */}
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-antraciet-900/95 via-antraciet-900/40 to-transparent" />
 
-      {/* Live-indicator */}
-      {isLive && item.isLiveNow && (
-        <span className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-md bg-antraciet-900/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-mist backdrop-blur-sm">
-          <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse-soft" />
-          Live
-        </span>
-      )}
+      {/* Linksboven gestapeld: live-indicator + afspeelbaarheids-waarschuwing. */}
+      <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
+        {isLive && item.isLiveNow && (
+          <span className="flex items-center gap-1.5 rounded-md bg-antraciet-900/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-mist backdrop-blur-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse-soft" />
+            Live
+          </span>
+        )}
+        <PlayabilityBadge item={item} />
+      </div>
       {isLive && item.channelBadge && (
         <span className="absolute right-2.5 top-2.5 grid h-8 min-w-8 place-items-center rounded-md bg-buisgroen/90 px-1.5 text-xs font-extrabold text-antraciet-900">
           {item.channelBadge}

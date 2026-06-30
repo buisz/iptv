@@ -63,6 +63,13 @@ export interface MediaItem {
   epgNow?: EpgEntry
   /** Eerstvolgende programma. */
   epgNext?: EpgEntry
+
+  // ── Afspeelbaarheid: codec/resolutie-hint × device-capaciteit ──
+  /**
+   * Kwaliteit/codec van de stream. Voor Xtream-VOD kan dit accuraat uit de
+   * metadata komen; voor live/M3U is het een heuristiek uit naam-hints.
+   */
+  quality?: QualityHint
 }
 
 /** Eén EPG-uitzending (tijden in ms sinds epoch). */
@@ -70,6 +77,18 @@ export interface EpgEntry {
   title: string
   start: number
   stop: number
+}
+
+/** Kwaliteit/codec-hint van een stream (uit metadata of naam-hints). */
+export interface QualityHint {
+  res?: 'sd' | 'hd' | 'fhd' | '4k'
+  codec?: 'h264' | 'hevc' | 'av1'
+  /**
+   * Herkomst van de hint. `meta` = uit provider-metadata (betrouwbaar, bijv.
+   * Xtream VOD `get_vod_info`). `name` = afgeleid uit de stream-/kanaalnaam
+   * (heuristiek; codec staat zelden in de naam, resolutie vaker).
+   */
+  from?: 'meta' | 'name'
 }
 
 export interface ContentRowData {

@@ -9,6 +9,7 @@
 import type { Catalog, ContentRowData, MediaItem, MediaKind } from '../types/content'
 import type { M3uTextSource, M3uUrlSource } from '../types/source'
 import { fetchText } from './proxy'
+import { qualityFromName } from './quality'
 
 const MAX_ROWS_PER_SECTION = 40
 const MAX_ITEMS_PER_ROW = 60
@@ -122,6 +123,7 @@ function toMediaItem(track: M3uTrack, index: number, kind: MediaKind): MediaItem
     isLiveNow: kind === 'live' ? true : undefined,
     streamUrl: track.url,
     epgChannelId: kind === 'live' ? track.tvgId : undefined,
+    quality: qualityFromName(`${track.name} ${track.group ?? ''}`),
     synopsis: '',
   }
 }

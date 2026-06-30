@@ -124,8 +124,14 @@ verplaats de last.
 Goedkoop & nu haalbaar (web + sturing):
 - [ ] **Codec-aware format**: bij Xtream live `.m3u8` (HLS) i.p.v. `.ts` aanvragen waar
       mogelijk → opent de deur naar ABR-renditions; en H.264 prefereren boven HEVC.
-- [ ] **Capability-detectie (web)**: `MediaCapabilities.decodingInfo()` /
-      `MediaSource.isTypeSupported` om vooraf te weten of een codec smooth/​powerEfficient is.
+- [x] **Capability-detectie (web)**: `MediaCapabilities.decodingInfo()` /
+      `MediaSource.isTypeSupported` om vooraf te weten of een codec ondersteund is →
+      `src/api/capabilities.ts` (`DeviceProfile`, `useDeviceProfile`, `playability`).
+- [x] **Afspeelbaarheids-indicator**: codec/resolutie-hint van de stream × het
+      device-profiel → een icoontje op de poster en een uitleg-regel in het detail
+      (`src/components/PlayabilityBadge.tsx`). Eerlijk: rood ("kan niet") alleen als de
+      codec uit betrouwbare metadata komt (Xtream VOD `get_vod_info`); voor live/M3U is
+      het een naam-heuristiek en degradeert "kan niet" naar amber ("mogelijk niet").
 - [ ] **Dropped-frame monitor (web)**: `video.getVideoPlaybackQuality().droppedVideoFrames`
       als trigger; bij overschrijding → lagere rendition (HLS) of duidelijke melding.
 
