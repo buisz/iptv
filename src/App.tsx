@@ -15,6 +15,7 @@ import { useCatalog } from './hooks/useCatalog'
 import { enrichItem } from './api/tmdb'
 import { loadSeriesInfo } from './api/xtream'
 import { getContinueWatching } from './api/progress'
+import { getFavorites } from './api/favorites'
 import type { ContentRowData } from './types/content'
 
 const ONBOARDED_KEY = 'buisz.onboarded'
@@ -72,10 +73,19 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHome, cwVersion, catalog])
 
+  // "Mijn lijst" (favorieten) — ook bovenaan home.
+  const favoritesRow: ContentRowData | null = useMemo(() => {
+    if (!isHome) return null
+    const items = getFavorites()
+    return items.length ? { id: 'favorites', title: 'Mijn lijst', items } : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHome, cwVersion, catalog])
+
   const rowsToRender = useMemo(() => {
     const base = activeSection?.rows ?? []
-    return continueRow ? [continueRow, ...base] : base
-  }, [activeSection, continueRow])
+    const extra = [continueRow, favoritesRow].filter(Boolean) as ContentRowData[]
+    return [...extra, ...base]
+  }, [activeSection, continueRow, favoritesRow])
 
   // Alle unieke items uit de catalogus, voor zoeken.
   const allItems = useMemo(() => {
@@ -287,7 +297,14 @@ export default function App() {
         }}
       />
 
-      <DetailOverlay item={selected} onClose={() => setSelected(null)} onPlay={setPlaying} />
+      <DetailOverlay
+        item={selected}
+        onClose={() => {
+          setSelected(null)
+          setCwVersion((v) => v + 1) // "Mijn lijst" verversen na favoriet-wijziging
+        }}
+        onPlay={setPlaying}
+      />
 
       <Player
         request={playing}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '../types/content'
 import type { PlayRequest } from './Player'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
+import { isFavorite, toggleFavorite } from '../api/favorites'
 
 interface DetailOverlayProps {
   item: MediaItem | null
@@ -23,11 +24,13 @@ function clock(ms: number): string {
 export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const [activeSeason, setActiveSeason] = useState(0)
+  const [fav, setFav] = useState(false)
 
   // Sluiten met Escape + scroll van de body vergrendelen zolang open.
   useEffect(() => {
     if (!item) return
     setActiveSeason(0)
+    setFav(isFavorite(item.id))
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -112,25 +115,47 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
 
         {/* Inhoud */}
         <div className="space-y-6 p-6">
-          {/* Afspeelknop (mobiel; desktop heeft de knop in de header) */}
-          <button
-            onClick={() =>
-              onPlay({
-                title: item.title,
-                url: item.streamUrl,
-                kind: item.kind,
-                id: item.id,
-                poster: item.poster,
-                backdrop: item.backdrop,
-              })
-            }
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-buisgroen px-5 py-3 text-sm font-bold text-antraciet-900 shadow-glow outline-none focus-visible:ring-2 focus-visible:ring-buisgroen sm:hidden"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-              <path d="M8 5.5v13l11-6.5z" />
-            </svg>
-            {item.kind === 'live' ? 'Kijk live' : 'Afspelen'}
-          </button>
+          {/* Acties: afspelen (mobiel) + Mijn lijst */}
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() =>
+                onPlay({
+                  title: item.title,
+                  url: item.streamUrl,
+                  kind: item.kind,
+                  id: item.id,
+                  poster: item.poster,
+                  backdrop: item.backdrop,
+                })
+              }
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-buisgroen px-5 py-3 text-sm font-bold text-antraciet-900 shadow-glow outline-none focus-visible:ring-2 focus-visible:ring-buisgroen sm:hidden"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                <path d="M8 5.5v13l11-6.5z" />
+              </svg>
+              {item.kind === 'live' ? 'Kijk live' : 'Afspelen'}
+            </button>
+
+            <button
+              onClick={() => setFav(toggleFavorite(item))}
+              aria-pressed={fav}
+              className={[
+                'flex shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-buisgroen sm:py-2.5',
+                fav
+                  ? 'border-buisgroen/60 bg-buisgroen/10 text-buisgroen'
+                  : 'border-white/15 text-mist hover:bg-white/[0.06]',
+              ].join(' ')}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill={fav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                {fav ? (
+                  <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+                ) : (
+                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                )}
+              </svg>
+              {fav ? 'In mijn lijst' : 'Mijn lijst'}
+            </button>
+          </div>
 
           {/* Metadata-regel */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium text-mist-400">
