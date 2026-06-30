@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Source, LiveFormatPreset } from '../types/source'
-import { detectSource } from '../api/detect'
 import { getTmdbKey, setTmdbKey } from '../api/tmdb'
 import { pairConfigured } from '../api/pairing'
+import { discoverSource, type DiscoveryResult } from '../api/discover'
 
 interface OnboardingWizardProps {
   busy: boolean
@@ -19,7 +19,7 @@ interface OnboardingWizardProps {
   onClose?: () => void
 }
 
-type Step = 'welcome' | 'choose' | 'details'
+type Step = 'welcome' | 'choose' | 'discover' | 'details'
 type Kind = 'xtream' | 'm3u-url' | 'm3u-text'
 
 const inputCls =
@@ -76,9 +76,11 @@ export default function OnboardingWizard({
     return () => window.removeEventListener('keydown', onKey)
   }, [dismissible, onClose, busy])
 
-  // Snelle plak-detectie
+  // Plak-link + onderzoek
   const [paste, setPaste] = useState('')
   const [detectNote, setDetectNote] = useState<string | null>(null)
+  const [discovering, setDiscovering] = useState(false)
+  const [discovery, setDiscovery] = useState<DiscoveryResult | null>(null)
 
   // Xtream
   const [host, setHost] = useState('')
@@ -110,15 +112,31 @@ export default function OnboardingWizard({
     }
   }
 
-  function onDetect() {
-    const result = detectSource(paste)
-    if (!result) {
-      setDetectNote('Geen geldige link herkend. Plak een volledige http(s)-URL of kies handmatig.')
-      return
+  // Onderzoek de geplakte URL: maak verbinding en toon wat er beschikbaar is.
+  async function onProbe() {
+    if (!paste.trim()) return
+    setStep('discover')
+    setDiscovering(true)
+    setDiscovery(null)
+    try {
+      setDiscovery(await discoverSource(paste))
+    } catch (err) {
+      setDiscovery({ error: (err as Error).message || 'Onderzoek mislukt.' })
+    } finally {
+      setDiscovering(false)
     }
-    prefillFrom(result.source)
-    setDetectNote(result.note)
-    setStep('details')
+  }
+
+  /** Kies een gevonden optie: pas 'm aan in details, of laad direct. */
+  function chooseDiscovered(source: Source, note: string, tweak: boolean) {
+    prefillFrom(source)
+    setDetectNote(note)
+    if (tweak) {
+      setStep('details')
+    } else {
+      setTmdbKey(tmdb.trim() || null)
+      void onApply(source)
+    }
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -182,8 +200,9 @@ export default function OnboardingWizard({
 
         {/* Stap-indicator */}
         <div className="mb-6 flex items-center gap-2">
-          {(['welcome', 'choose', 'details'] as Step[]).map((s, i) => {
-            const active = ['welcome', 'choose', 'details'].indexOf(step) >= i
+          {(['welcome', 'choose', 'details'] as Step[]).map((s) => {
+            const order: Step[] = ['welcome', 'choose', 'discover', 'details']
+            const active = order.indexOf(step) >= order.indexOf(s)
             return (
               <span
                 key={s}
@@ -232,22 +251,22 @@ export default function OnboardingWizard({
 
             {/* Snelle plak-detectie */}
             <div className="mt-5">
-              <Field label="Plak je provider-link" hint="Xtream- of M3U-link; we herkennen het type automatisch.">
+              <Field label="Plak je provider-link" hint="We maken verbinding en tonen wat de link biedt.">
                 <div className="flex gap-2">
                   <input
                     className={inputCls}
                     value={paste}
                     onChange={(e) => setPaste(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && onDetect()}
+                    onKeyDown={(e) => e.key === 'Enter' && onProbe()}
                     placeholder="http://voorbeeld.tv:8080/get.php?username=…"
                     autoComplete="off"
                   />
                   <button
-                    onClick={onDetect}
+                    onClick={onProbe}
                     disabled={!paste.trim()}
                     className="shrink-0 rounded-lg bg-buisgroen px-4 text-sm font-bold text-antraciet-900 transition-transform hover:scale-[1.03] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
                   >
-                    Detecteer
+                    Onderzoek
                   </button>
                 </div>
               </Field>
@@ -299,6 +318,106 @@ export default function OnboardingWizard({
             <button
               onClick={() => setStep('welcome')}
               className="mt-5 text-sm font-medium text-mist-400 transition-colors hover:text-mist outline-none focus-visible:ring-2 focus-visible:ring-buisgroen rounded"
+            >
+              ← Terug
+            </button>
+          </div>
+        )}
+
+        {step === 'discover' && (
+          <div>
+            <h2 className="text-xl font-bold text-mist">Onderzoek</h2>
+            <p className="mt-1 break-all text-xs text-mist-400">{paste}</p>
+
+            {discovering && (
+              <div className="grid h-44 place-items-center">
+                <div className="text-center">
+                  <span className="mx-auto block h-10 w-10 animate-spin rounded-full border-[3px] border-white/20 border-t-buisgroen" />
+                  <p className="mt-3 text-sm text-mist-400">Verbinding maken…</p>
+                </div>
+              </div>
+            )}
+
+            {!discovering && discovery && (
+              <div className="mt-5 space-y-3">
+                {discovery.error && !discovery.xtream && !discovery.m3u && (
+                  <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-300">
+                    {discovery.error}
+                  </p>
+                )}
+
+                {discovery.xtream && (
+                  <div className="rounded-xl border border-buisgroen/30 bg-buisgroen/[0.06] p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold text-mist">Xtream-account</span>
+                      {discovery.xtream.status && (
+                        <span className="rounded bg-buisgroen/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-buisgroen">
+                          {discovery.xtream.status}
+                        </span>
+                      )}
+                    </div>
+                    <ul className="mt-2 space-y-0.5 text-xs text-mist-400">
+                      <li>Verloopt: {discovery.xtream.expDate}</li>
+                      {discovery.xtream.maxConnections && (
+                        <li>
+                          Verbindingen: {discovery.xtream.activeConnections ?? '?'} / {discovery.xtream.maxConnections}
+                        </li>
+                      )}
+                      <li>
+                        {discovery.xtream.liveCats ?? 0} live · {discovery.xtream.vodCats ?? 0} films ·{' '}
+                        {discovery.xtream.seriesCats ?? 0} series (categorieën)
+                      </li>
+                    </ul>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => chooseDiscovered(discovery.xtream!.source, 'Geladen via Xtream-API.', false)}
+                        disabled={busy}
+                        className="flex-1 rounded-full bg-buisgroen px-4 py-2.5 text-sm font-bold text-antraciet-900 disabled:opacity-60 outline-none focus-visible:ring-2 focus-visible:ring-buisgroen"
+                      >
+                        Laad via Xtream
+                      </button>
+                      <button
+                        onClick={() => chooseDiscovered(discovery.xtream!.source, '', true)}
+                        disabled={busy}
+                        className="rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold text-mist hover:bg-white/[0.06] outline-none focus-visible:ring-2 focus-visible:ring-buisgroen"
+                      >
+                        Aanpassen
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {discovery.m3u && (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                    <span className="text-sm font-bold text-mist">M3U-playlist</span>
+                    <ul className="mt-2 space-y-0.5 text-xs text-mist-400">
+                      <li>
+                        {discovery.m3u.channels} kanalen in {discovery.m3u.groups} groepen
+                      </li>
+                      <li>EPG: {discovery.m3u.epgUrl ? 'ja' : 'niet gevonden'}</li>
+                    </ul>
+                    <button
+                      onClick={() => chooseDiscovered(discovery.m3u!.source, 'Geladen als M3U-playlist.', false)}
+                      disabled={busy}
+                      className="mt-3 w-full rounded-full bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-mist hover:bg-white/[0.1] disabled:opacity-60 outline-none focus-visible:ring-2 focus-visible:ring-buisgroen"
+                    >
+                      {discovery.xtream ? 'Laad als platte M3U' : 'Laad deze M3U-playlist'}
+                    </button>
+                  </div>
+                )}
+
+                {error && (
+                  <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-300">
+                    {error}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => setStep('choose')}
+              disabled={busy}
+              className="mt-5 text-sm font-medium text-mist-400 transition-colors hover:text-mist disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-buisgroen rounded"
             >
               ← Terug
             </button>
