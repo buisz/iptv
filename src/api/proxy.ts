@@ -15,7 +15,23 @@ export function proxied(url: string): string {
   if (base) {
     return `${base}?url=${encodeURIComponent(url)}`
   }
+  // Anders: de ingestelde koppel-Worker biedt ook /proxy aan.
+  const worker = workerProxyBase()
+  if (worker) {
+    return `${worker}/proxy?url=${encodeURIComponent(url)}`
+  }
   return url
+}
+
+/** Worker-basis uit env of de in Instellingen bewaarde URL (alleen in productie nuttig). */
+function workerProxyBase(): string {
+  const env = import.meta.env.VITE_PAIR_BASE
+  if (env) return env.replace(/\/$/, '')
+  try {
+    return (localStorage.getItem('buisz.pairBase') || '').replace(/\/$/, '')
+  } catch {
+    return ''
+  }
 }
 
 /** Haal tekst op via de proxy met een nette foutmelding. */

@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useI18n, type Lang } from '../i18n'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { clearFavorites } from '../api/favorites'
 import { clearProgress } from '../api/progress'
+import { pairBase, setPairBase } from '../api/pairing'
 
 interface SettingsOverlayProps {
   open: boolean
@@ -86,6 +87,7 @@ export default function SettingsOverlay({
   onChanged,
 }: SettingsOverlayProps) {
   const { lang, setLang, t } = useI18n()
+  const [pair, setPair] = useState(pairBase())
 
   useEffect(() => {
     if (!open) return
@@ -160,6 +162,23 @@ export default function SettingsOverlay({
           <Section title={t('settings.source')}>
             <Row label={sourceLabel} onClick={onManageSource} />
             <Row label={t('settings.restartWizard')} hint={t('settings.restartWizardHint')} onClick={onRestartWizard} />
+          </Section>
+
+          {/* QR-koppeling */}
+          <Section title="Koppel-service (QR)">
+            <label className="block px-4 py-3">
+              <span className="mb-1 block text-xs text-mist-400">
+                Cloudflare-Worker-URL (zie worker/README). Leeg = uit.
+              </span>
+              <input
+                value={pair}
+                onChange={(e) => setPair(e.target.value)}
+                onBlur={() => setPairBase(pair)}
+                placeholder="https://buisz-pair.<jij>.workers.dev"
+                className="w-full rounded-lg border border-white/10 bg-antraciet-900/60 px-3 py-2.5 text-sm text-mist placeholder:text-mist-300 outline-none focus:border-buisgroen/60 focus:ring-2 focus:ring-buisgroen/30"
+                autoComplete="off"
+              />
+            </label>
           </Section>
 
           {/* Gegevens */}

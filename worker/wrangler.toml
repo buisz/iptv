@@ -1,0 +1,10 @@
+name = "buisz-pair"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# KV voor kortlevende koppel-sessies.
+# Maak de namespace aan en plak het id hieronder:
+#   npx wrangler kv namespace create SESSIONS
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "VERVANG_MET_JE_KV_NAMESPACE_ID"

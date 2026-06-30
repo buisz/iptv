@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Source, LiveFormatPreset } from '../types/source'
 import { getTmdbKey, setTmdbKey } from '../api/tmdb'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
+import { pairConfigured } from '../api/pairing'
 
 interface SourceModalProps {
   open: boolean
@@ -10,6 +11,7 @@ interface SourceModalProps {
   currentKind: Source['kind']
   onClose: () => void
   onApply: (source: Source) => void
+  onPair?: () => void
   onResetDemo: () => void
 }
 
@@ -58,6 +60,7 @@ export default function SourceModal({
   currentKind,
   onClose,
   onApply,
+  onPair,
   onResetDemo,
 }: SourceModalProps) {
   const [tab, setTab] = useState<Tab>('xtream')
@@ -182,6 +185,19 @@ export default function SourceModal({
         </div>
 
         <div className="space-y-4 px-6 py-5">
+          {onPair && pairConfigured() && (
+            <button
+              onClick={onPair}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-buisgroen/30 bg-buisgroen/[0.06] px-4 py-3 text-sm font-semibold text-buisgroen transition-colors hover:bg-buisgroen/[0.12] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3M21 21v.01M17 21h.01M21 17h.01" strokeLinecap="round" />
+              </svg>
+              Koppel via QR-code
+            </button>
+          )}
+
           {tab === 'xtream' && (
             <>
               <Field label="Host" hint="Zonder http:// — bijv. voorbeeld.tv">

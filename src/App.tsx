@@ -8,6 +8,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import SearchOverlay from './components/SearchOverlay'
 import GuideOverlay from './components/GuideOverlay'
 import SettingsOverlay from './components/SettingsOverlay'
+import PairOverlay from './components/PairOverlay'
 import Player, { type PlayRequest } from './components/Player'
 import type { MediaItem } from './types/content'
 import type { Source } from './types/source'
@@ -48,6 +49,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [pairOpen, setPairOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
   // Versie-teller om "Verder kijken" te verversen nadat de speler sluit.
   const [cwVersion, setCwVersion] = useState(0)
@@ -132,6 +134,9 @@ export default function App() {
       } else if (guideOpen) {
         e.preventDefault()
         setGuideOpen(false)
+      } else if (pairOpen) {
+        e.preventDefault()
+        setPairOpen(false)
       } else if (settingsOpen) {
         e.preventDefault()
         setSettingsOpen(false)
@@ -145,7 +150,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onBack)
     return () => window.removeEventListener('keydown', onBack)
-  }, [playing, sourceOpen, selected, searchOpen, guideOpen, settingsOpen])
+  }, [playing, sourceOpen, selected, searchOpen, guideOpen, settingsOpen, pairOpen])
 
   // Pijltjesnavigatie staat uit zolang een overlay/wizard open is.
   useSpatialNav(
@@ -155,7 +160,8 @@ export default function App() {
       !wizardOpen &&
       !searchOpen &&
       !guideOpen &&
-      !settingsOpen,
+      !settingsOpen &&
+      !pairOpen,
   )
 
   function handleSelectSection(key: string) {
@@ -218,6 +224,18 @@ export default function App() {
     reset()
     markOnboarded()
     setWizardOpen(false)
+  }
+
+  // QR-koppeling: pas de gekoppelde bron toe en sluit alles bij succes.
+  async function onPaired(next: Source): Promise<boolean> {
+    const ok = await setSource(next)
+    if (ok) {
+      markOnboarded()
+      setPairOpen(false)
+      setWizardOpen(false)
+      setSourceOpen(false)
+    }
+    return ok
   }
 
   const showHero = activeKey === (sections[0]?.key ?? 'home') && Boolean(catalog.hero)
@@ -352,10 +370,13 @@ export default function App() {
           error={error}
           onApply={wizardApply}
           onUseDemo={wizardUseDemo}
+          onPair={() => setPairOpen(true)}
           dismissible={wizardDismissible}
           onClose={() => setWizardOpen(false)}
         />
       )}
+
+      <PairOverlay open={pairOpen} onClose={() => setPairOpen(false)} onPaired={onPaired} />
 
       <SettingsOverlay
         open={settingsOpen}
@@ -379,6 +400,7 @@ export default function App() {
         currentKind={source.kind}
         onClose={() => setSourceOpen(false)}
         onApply={applySource}
+        onPair={() => setPairOpen(true)}
         onResetDemo={() => {
           reset()
           setSourceOpen(false)

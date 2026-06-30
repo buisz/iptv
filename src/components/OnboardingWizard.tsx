@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Source, LiveFormatPreset } from '../types/source'
 import { detectSource } from '../api/detect'
 import { getTmdbKey, setTmdbKey } from '../api/tmdb'
+import { pairConfigured } from '../api/pairing'
 
 interface OnboardingWizardProps {
   busy: boolean
@@ -10,6 +11,8 @@ interface OnboardingWizardProps {
   onApply: (source: Source) => Promise<boolean>
   /** Sla over en gebruik de demo-bron (alleen bij de eerste keer). */
   onUseDemo: () => void
+  /** Open de QR-koppeling (alleen getoond als een koppel-service is ingesteld). */
+  onPair?: () => void
   /** Of de wizard gesloten mag worden (true zodra er al iets te zien is). */
   dismissible?: boolean
   /** Sluiten zonder van bron te wisselen (alleen relevant als dismissible). */
@@ -56,6 +59,7 @@ export default function OnboardingWizard({
   error,
   onApply,
   onUseDemo,
+  onPair,
   dismissible = false,
   onClose,
 }: OnboardingWizardProps) {
@@ -248,6 +252,19 @@ export default function OnboardingWizard({
                 </div>
               </Field>
             </div>
+
+            {onPair && pairConfigured() && (
+              <button
+                onClick={onPair}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-buisgroen/30 bg-buisgroen/[0.06] px-4 py-3 text-sm font-semibold text-buisgroen transition-colors hover:bg-buisgroen/[0.12] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3M21 21v.01M17 21h.01M21 17h.01" strokeLinecap="round" />
+                </svg>
+                Koppel via QR-code
+              </button>
+            )}
 
             <div className="my-5 flex items-center gap-3 text-xs text-mist-300">
               <span className="h-px flex-1 bg-white/10" /> of kies handmatig <span className="h-px flex-1 bg-white/10" />
