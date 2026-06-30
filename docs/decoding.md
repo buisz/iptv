@@ -57,6 +57,36 @@ ExoPlayer, en het vervangt de huidige `@capgo`-plugin. Op Android kan dit via ee
 libVLC-Capacitor-plugin of een dunne native module; op de oudste TV's blijft de
 platform-native player (Tizen AVPlay / webOS) leidend.
 
+## Per-platform: hardware-offload & fallback-realiteit
+
+Belangrijk inzicht: **software-decode-tuning (libavcodec threads/profiel/deinterlace)
+is iets voor apparaten mét CPU-headroom (box/desktop) — niet voor de TV zelf.** Op een
+zwakke TV-SoC is HD software-decoden sowieso niet haalbaar; als de hardware een codec
+niet kan, kan de CPU het ook niet. De juiste fallback op een TV is dus **transcode of
+een externe box**, niet CPU-decode.
+
+| Platform | HW-offload | SW-fallback met tuning | Fallback bij niet-ondersteunde codec |
+|---|---|---|---|
+| **Tizen (Web App)** | ✅ via **AVPlay** (`webapis.avplay`) — native HW-decoder, callable vanuit de web-app, ook op oude modellen | ❌ niet in een web-app (geen libavcodec/threads); ook niet zinvol op TV-CPU | **server-side transcode** of box |
+| **webOS (Web App)** | ✅ via de native media-pipeline | ❌ idem | transcode / box |
+| **Android-box** | ✅ ExoPlayer/libVLC | ✅ **libVLC** (HW→SW-tuned) — hier heeft het zin | libVLC-SW of transcode |
+| **Browser** | ✅ ná MSE | ❌ | transcode / native client |
+
+### Wat dit betekent voor Tizen
+
+- **Web Application is en blijft de juiste keuze.** Native C/C++ (`.tpk`) op Tizen levert
+  je géén bruikbare SW-fallback op (HD-CPU-decode werkt niet op oude TV's) en kost een
+  aparte codebase — niet de moeite.
+- De hardware-offload haal je uit **AVPlay**, niet uit `<video>`/mpegts.js. AVPlay
+  speelt MPEG-TS/HLS met de **hardware-decoder** af (zoals op de box ExoPlayer dat doet).
+  Bestaat al sinds vroege Tizen, dus ook oude modellen profiteren.
+- De UI draait op de ES5-legacy-build; alléén het decoden gaat naar AVPlay. Codecs die
+  de TV-hardware niet kent → **transcode of box**, niet de CPU.
+
+→ Roadmap-gevolg: een **AVPlay-engine** in `src/api/player/` (naast de browser- en
+ExoPlayer/libVLC-engines). De `liveFormat`-keuze (HLS prefereren) en server-transcode
+zijn de fallback-knoppen op TV, niet thread-count/deinterlace.
+
 ## Architectuur — de echte oplossing voor onmogelijke combos
 
 Voor codecs/resoluties die het device **nooit** aankan (HEVC/4K op H.264-only hardware):
