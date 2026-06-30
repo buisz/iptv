@@ -57,6 +57,26 @@ ExoPlayer, en het vervangt de huidige `@capgo`-plugin. Op Android kan dit via ee
 libVLC-Capacitor-plugin of een dunne native module; op de oudste TV's blijft de
 platform-native player (Tizen AVPlay / webOS) leidend.
 
+## Verwarring opgehelderd: "geen offload" ≠ "app draait niet"
+
+Belangrijk onderscheid:
+
+- **Elke TV heeft een hardware-decoder.** Minstens **H.264/AVC** (vaak ook HEVC op
+  4K-modellen, MPEG-2 voor broadcast). "Geen hardware-offload" betekent dus bijna nooit
+  "geen decoder" — het betekent "geen hardware-decode voor één specifieke codec/profiel".
+- **IPTV is overwegend H.264.** Élke TV decodeert H.264 in hardware → daarom "werken"
+  de IPTV-apps die je op die TV ziet gewoon. Ze gebruiken de native speler (AVPlay op
+  Tizen) op de hardware-decoder. Wij doen exact hetzelfde.
+- Het probleemgeval is **smal**: een stream in een codec die de TV-chip níet heeft
+  (bv. HEVC/H.265 op een oude H.264-only TV, of 4K op een 1080p-decoder). Dáár — en
+  alléén daar — helpt CPU-software-decode niet (TV-CPU te zwak) → transcode/box.
+- **"CPU minimaal belasten"** gaat over de **UI** (lichte DOM, ES5, lijst-virtualisatie)
+  — dat doen we en dat helpt. Niet over video-decode op de CPU.
+
+Kortom: de app + normale (H.264) IPTV draait op (ook oude) TV's via de hardware-decoder.
+De fallback-keten met SW-tuning is een **box**-ding; de TV-fallback voor een exotische
+codec is transcode/box.
+
 ## Per-platform: hardware-offload & fallback-realiteit
 
 Belangrijk inzicht: **software-decode-tuning (libavcodec threads/profiel/deinterlace)
