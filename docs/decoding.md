@@ -89,11 +89,19 @@ Infrastructuur (optioneel, jouw kant):
 - [ ] **Transcode-/restream-endpoint** definiëren (FFmpeg/Jellyfin) voor onmogelijke
       combinaties; in de app als gewone bron-/proxy-URL laden.
 
+## Besluit (vastgelegd)
+
+**libVLC wordt de native afspeel-engine op Android** — dit is besloten, niet optioneel.
+Volgorde: (1) eerst een testronde op echte hardware met de huidige opzet (ExoPlayer via
+`@capgo`) om te zien wat écht hapert; (2) daarna de **engine-swap naar libVLC** met de
+volledige fallback-keten (HW→SW-tuned, thread-count = cores, deinterlace, expliciete
+HW/SW-toggle, SoC-blacklist). Server-side transcoding blijft de uitwijk voor combinaties
+die het device fysiek nooit trekt.
+
+De `src/api/player/`-abstractie is hier al op voorbereid: een libVLC-engine komt ernaast
+zonder de UI te raken.
+
 ## Korte conclusie
 
 De huidige stack speelt **met hardware-decode** af op moderne hardware (browser + box).
-De **volledige software-fallback-keten** uit dit document vereist een engine-swap naar
-**libVLC** op Android (de enige met alle knoppen), plus optioneel server-side
-transcoding voor combinaties die het device fysiek niet aankan. De `src/api/player/`-
-abstractie is hier al op voorbereid: een libVLC-engine kan ernaast komen zonder de
-UI te raken.
+Voor zwakke hardware komt **libVLC** erin (besloten), na de testronde.
