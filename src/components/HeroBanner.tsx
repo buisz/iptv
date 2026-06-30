@@ -1,4 +1,5 @@
 import type { MediaItem } from '../types/content'
+import { useT } from '../i18n'
 
 interface HeroBannerProps {
   item: MediaItem
@@ -30,6 +31,7 @@ function Meta({ item }: { item: MediaItem }) {
 }
 
 export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
+  const t = useT()
   return (
     <section className="relative h-[68vh] min-h-[480px] w-full">
       {/* Achtergrondbeeld */}
@@ -48,7 +50,7 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
       <div className="edge-x relative flex h-full max-w-2xl flex-col justify-end pb-[clamp(2rem,9vh,7rem)]">
         <span className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-buisgroen/30 bg-buisgroen/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-buisgroen animate-fade-in">
           <span className="h-1.5 w-1.5 rounded-full bg-buisgroen" />
-          Uitgelicht
+          {t('hero.featured')}
         </span>
 
         <h1 className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-mist drop-shadow-sm animate-rise-in sm:text-6xl md:text-7xl">
@@ -77,7 +79,7 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
               <path d="M8 5.5v13l11-6.5z" />
             </svg>
-            Afspelen
+            {t('hero.play')}
           </button>
           <button
             onClick={() => onOpen(item)}
@@ -87,7 +89,7 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
               <circle cx="12" cy="12" r="9" />
               <path d="M12 11v5M12 8h.01" strokeLinecap="round" />
             </svg>
-            Meer info
+            {t('hero.moreInfo')}
           </button>
         </div>
       </div>

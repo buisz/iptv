@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MediaItem } from '../types/content'
 import PosterCard from './PosterCard'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
+import { useT } from '../i18n'
 
 interface SearchOverlayProps {
   open: boolean
@@ -17,6 +18,7 @@ const kindLabel: Record<MediaItem['kind'], string> = {
 }
 
 export default function SearchOverlay({ open, items, onClose, onOpen }: SearchOverlayProps) {
+  const t = useT()
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -67,12 +69,12 @@ export default function SearchOverlay({ open, items, onClose, onOpen }: SearchOv
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Zoek films, series, zenders…"
+          placeholder={t('search.placeholder')}
           className="flex-1 bg-transparent text-lg font-medium text-mist placeholder:text-mist-300 outline-none"
         />
         <button
           onClick={onClose}
-          aria-label="Sluiten"
+          aria-label={t('common.close')}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -83,12 +85,12 @@ export default function SearchOverlay({ open, items, onClose, onOpen }: SearchOv
 
       <div className="flex-1 overflow-y-auto py-6">
         {query.trim().length < 2 ? (
-          <p className="edge-x text-sm text-mist-400">Typ minstens 2 tekens om te zoeken in je bibliotheek.</p>
+          <p className="edge-x text-sm text-mist-400">{t('search.hint')}</p>
         ) : results.length === 0 ? (
-          <p className="edge-x text-sm text-mist-400">Geen resultaten voor "{query}".</p>
+          <p className="edge-x text-sm text-mist-400">{t('search.noResults', { q: query })}</p>
         ) : (
           <>
-            <p className="edge-x mb-4 text-xs font-medium text-mist-300">{results.length} resultaten</p>
+            <p className="edge-x mb-4 text-xs font-medium text-mist-300">{t('search.results', { n: results.length })}</p>
             <div className="edge-x flex flex-wrap gap-3 sm:gap-4">
               {results.map((item, i) => (
                 <div key={`${item.id}-${i}`} className="relative shrink-0">

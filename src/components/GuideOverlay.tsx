@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { MediaItem } from '../types/content'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
+import { useT } from '../i18n'
 
 interface GuideOverlayProps {
   open: boolean
@@ -14,6 +15,7 @@ function clock(ms: number): string {
 }
 
 function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (i: MediaItem) => void }) {
+  const t = useT()
   const cur = ch.epgNow
   const next = ch.epgNext
   const fraction =
@@ -38,7 +40,7 @@ function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (
           <span className="truncate text-sm font-semibold text-mist">{ch.title}</span>
           {ch.isLiveNow && (
             <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse-soft" /> Live
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse-soft" /> {t('common.live')}
             </span>
           )}
         </span>
@@ -47,7 +49,7 @@ function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (
           <>
             <span className="mt-1 flex items-baseline justify-between gap-3">
               <span className="truncate text-xs text-mist-400">
-                <span className="font-semibold text-buisgroen">Nu</span> · {cur.title}
+                <span className="font-semibold text-buisgroen">{t('detail.now')}</span> · {cur.title}
               </span>
               <span className="shrink-0 text-[11px] text-mist-300">
                 {clock(cur.start)}–{clock(cur.stop)}
@@ -58,13 +60,13 @@ function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (
             </span>
             {next && (
               <span className="mt-1 block truncate text-[11px] text-mist-300">
-                Straks · {next.title} ({clock(next.start)})
+                {t('detail.next')} · {next.title} ({clock(next.start)})
               </span>
             )}
           </>
         ) : (
           <span className="mt-1 block text-xs text-mist-300">
-            {ch.tagline || 'Geen gidsinformatie beschikbaar'}
+            {ch.tagline || t('guide.noInfo')}
           </span>
         )}
       </span>
@@ -73,6 +75,7 @@ function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (
 }
 
 export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideOverlayProps) {
+  const t = useT()
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -96,14 +99,15 @@ export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideO
     <div className="fixed inset-0 z-[75] flex flex-col bg-antraciet-900/95 backdrop-blur-md animate-fade-in">
       <div className="edge-x flex items-center justify-between gap-3 border-b border-white/[0.06] py-4">
         <div>
-          <h2 className="text-lg font-bold text-mist">TV-gids</h2>
+          <h2 className="text-lg font-bold text-mist">{t('guide.title')}</h2>
           <p className="text-xs text-mist-400">
-            {channels.length} zenders{hasEpg ? '' : ' · laad een EPG-bron voor nu/straks'}
+            {t('guide.channels', { n: channels.length })}
+            {hasEpg ? '' : t('guide.needEpg')}
           </p>
         </div>
         <button
           onClick={onClose}
-          aria-label="Sluiten"
+          aria-label={t('common.close')}
           className="grid h-10 w-10 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -114,7 +118,7 @@ export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideO
 
       <div className="flex-1 overflow-y-auto py-5">
         {channels.length === 0 ? (
-          <p className="edge-x text-sm text-mist-400">Geen live-zenders in de actieve bron.</p>
+          <p className="edge-x text-sm text-mist-400">{t('guide.noChannels')}</p>
         ) : (
           <div className="edge-x grid gap-2.5 sm:grid-cols-2">
             {channels.map((ch, i) => (

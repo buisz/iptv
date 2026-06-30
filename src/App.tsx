@@ -7,6 +7,7 @@ import SourceModal from './components/SourceModal'
 import OnboardingWizard from './components/OnboardingWizard'
 import SearchOverlay from './components/SearchOverlay'
 import GuideOverlay from './components/GuideOverlay'
+import SettingsOverlay from './components/SettingsOverlay'
 import Player, { type PlayRequest } from './components/Player'
 import type { MediaItem } from './types/content'
 import type { Source } from './types/source'
@@ -16,6 +17,7 @@ import { enrichItem } from './api/tmdb'
 import { loadSeriesInfo } from './api/xtream'
 import { getContinueWatching } from './api/progress'
 import { getFavorites } from './api/favorites'
+import { useT } from './i18n'
 import type { ContentRowData } from './types/content'
 
 const ONBOARDED_KEY = 'buisz.onboarded'
@@ -37,6 +39,7 @@ function markOnboarded() {
 }
 
 export default function App() {
+  const t = useT()
   const { source, catalog, loading, error, setSource, reset, patchCatalog, configured } = useCatalog()
   const [activeKey, setActiveKey] = useState('home')
   const [selected, setSelected] = useState<MediaItem | null>(null)
@@ -44,6 +47,7 @@ export default function App() {
   const [sourceOpen, setSourceOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [noticesDismissed, setNoticesDismissed] = useState(false)
   // Versie-teller om "Verder kijken" te verversen nadat de speler sluit.
   const [cwVersion, setCwVersion] = useState(0)
@@ -69,7 +73,7 @@ export default function App() {
   const continueRow: ContentRowData | null = useMemo(() => {
     if (!isHome) return null
     const items = getContinueWatching()
-    return items.length ? { id: 'continue-watching', title: 'Verder kijken', items, showProgress: true } : null
+    return items.length ? { id: 'continue-watching', title: t('row.continue'), items, showProgress: true } : null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHome, cwVersion, catalog])
 
@@ -77,7 +81,7 @@ export default function App() {
   const favoritesRow: ContentRowData | null = useMemo(() => {
     if (!isHome) return null
     const items = getFavorites()
-    return items.length ? { id: 'favorites', title: 'Mijn lijst', items } : null
+    return items.length ? { id: 'favorites', title: t('row.myList'), items } : null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHome, cwVersion, catalog])
 
@@ -128,6 +132,9 @@ export default function App() {
       } else if (guideOpen) {
         e.preventDefault()
         setGuideOpen(false)
+      } else if (settingsOpen) {
+        e.preventDefault()
+        setSettingsOpen(false)
       } else if (sourceOpen) {
         e.preventDefault()
         setSourceOpen(false)
@@ -138,11 +145,17 @@ export default function App() {
     }
     window.addEventListener('keydown', onBack)
     return () => window.removeEventListener('keydown', onBack)
-  }, [playing, sourceOpen, selected, searchOpen, guideOpen])
+  }, [playing, sourceOpen, selected, searchOpen, guideOpen, settingsOpen])
 
   // Pijltjesnavigatie staat uit zolang een overlay/wizard open is.
   useSpatialNav(
-    selected === null && !sourceOpen && playing === null && !wizardOpen && !searchOpen && !guideOpen,
+    selected === null &&
+      !sourceOpen &&
+      playing === null &&
+      !wizardOpen &&
+      !searchOpen &&
+      !guideOpen &&
+      !settingsOpen,
   )
 
   function handleSelectSection(key: string) {
@@ -221,6 +234,7 @@ export default function App() {
         onOpenSource={() => setSourceOpen(true)}
         onSearch={() => setSearchOpen(true)}
         onGuide={() => setGuideOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
       />
 
       <main>
@@ -342,6 +356,21 @@ export default function App() {
           onClose={() => setWizardOpen(false)}
         />
       )}
+
+      <SettingsOverlay
+        open={settingsOpen}
+        sourceLabel={catalog.sourceLabel}
+        onClose={() => setSettingsOpen(false)}
+        onManageSource={() => {
+          setSettingsOpen(false)
+          setSourceOpen(true)
+        }}
+        onRestartWizard={() => {
+          setSettingsOpen(false)
+          openWizard()
+        }}
+        onChanged={() => setCwVersion((v) => v + 1)}
+      />
 
       <SourceModal
         open={sourceOpen}

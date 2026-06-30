@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CatalogSection } from '../types/content'
+import { useT } from '../i18n'
 
 interface NavBarProps {
   sections: CatalogSection[]
@@ -10,6 +11,7 @@ interface NavBarProps {
   onOpenSource: () => void
   onSearch: () => void
   onGuide: () => void
+  onSettings: () => void
 }
 
 function Logo() {
@@ -38,7 +40,9 @@ export default function NavBar({
   onOpenSource,
   onSearch,
   onGuide,
+  onSettings,
 }: NavBarProps) {
+  const t = useT()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export default function NavBar({
           <button
             onClick={onOpenSource}
             className="flex max-w-[14rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-2 text-sm font-medium text-mist-400 transition-colors hover:text-mist hover:border-buisgroen/40 focus-visible:ring-2 focus-visible:ring-buisgroen outline-none sm:px-3.5"
-            title="Bron toevoegen of wisselen"
+            title={t('nav.sourceTitle')}
           >
             <span
               className={[
@@ -102,8 +106,8 @@ export default function NavBar({
           </button>
           <button
             onClick={onGuide}
-            aria-label="TV-gids"
-            title="TV-gids"
+            aria-label={t('nav.guide')}
+            title={t('nav.guide')}
             className="grid h-10 w-10 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -113,7 +117,7 @@ export default function NavBar({
           </button>
           <button
             onClick={onSearch}
-            aria-label="Zoeken"
+            aria-label={t('nav.search')}
             className="grid h-10 w-10 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -121,9 +125,17 @@ export default function NavBar({
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
           </button>
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-diepteal-400 to-diepteal-600 text-sm font-bold text-antraciet-900">
-            R
-          </span>
+          <button
+            onClick={onSettings}
+            aria-label={t('nav.settings')}
+            title={t('nav.settings')}
+            className="grid h-10 w-10 place-items-center rounded-full text-mist-400 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
       </nav>
 

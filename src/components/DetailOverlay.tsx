@@ -3,6 +3,7 @@ import type { MediaItem } from '../types/content'
 import type { PlayRequest } from './Player'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { isFavorite, toggleFavorite } from '../api/favorites'
+import { useT } from '../i18n'
 
 interface DetailOverlayProps {
   item: MediaItem | null
@@ -22,6 +23,7 @@ function clock(ms: number): string {
 }
 
 export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayProps) {
+  const t = useT()
   const panelRef = useRef<HTMLDivElement>(null)
   const [activeSeason, setActiveSeason] = useState(0)
   const [fav, setFav] = useState(false)
@@ -108,7 +110,7 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
                 <path d="M8 5.5v13l11-6.5z" />
               </svg>
-              {item.kind === 'live' ? 'Kijk live' : 'Afspelen'}
+              {item.kind === 'live' ? t('detail.watchLive') : t('detail.play')}
             </button>
           </div>
         </div>
@@ -133,7 +135,7 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
                 <path d="M8 5.5v13l11-6.5z" />
               </svg>
-              {item.kind === 'live' ? 'Kijk live' : 'Afspelen'}
+              {item.kind === 'live' ? t('detail.watchLive') : t('detail.play')}
             </button>
 
             <button
@@ -153,7 +155,7 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                 )}
               </svg>
-              {fav ? 'In mijn lijst' : 'Mijn lijst'}
+              {fav ? t('detail.inMyList') : t('detail.myList')}
             </button>
           </div>
 
@@ -188,7 +190,7 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
               {item.epgNow && (
                 <div className="flex items-start gap-3 rounded-xl border border-buisgroen/20 bg-buisgroen/[0.06] p-3">
                   <span className="mt-0.5 shrink-0 rounded bg-buisgroen px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-antraciet-900">
-                    Nu
+                    {t('detail.now')}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-mist">{item.epgNow.title}</p>
@@ -201,7 +203,7 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
               {item.epgNext && (
                 <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] p-3">
                   <span className="mt-0.5 shrink-0 rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-mist-400">
-                    Straks
+                    {t('detail.next')}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-mist">{item.epgNext.title}</p>
@@ -230,7 +232,7 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
           {item.cast && item.cast.length > 0 && (
             <div>
               <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-mist-300">
-                Met
+                {t('detail.with')}
               </h3>
               <p className="text-sm text-mist-500">{item.cast.join(' · ')}</p>
             </div>
@@ -240,7 +242,7 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
           {item.seasons && item.seasons.length > 0 && season && (
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-bold text-mist">Afleveringen</h3>
+                <h3 className="text-sm font-bold text-mist">{t('detail.episodes')}</h3>
                 {item.seasons.length > 1 && (
                   <div className="flex gap-1.5">
                     {item.seasons.map((s, i) => (

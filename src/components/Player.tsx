@@ -4,6 +4,7 @@ import { castMedia, initCast, onCastAvailability } from '../api/cast'
 import { resumePosition, saveProgress } from '../api/progress'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { proxied } from '../api/proxy'
+import { useT } from '../i18n'
 import {
   nativePlay,
   nativeProgress,
@@ -41,6 +42,7 @@ function isMpegTs(url: string): boolean {
 const NATIVE = nativeVideoAvailable()
 
 export default function Player({ request, onClose }: PlayerProps) {
+  const t = useT()
   const videoRef = useRef<HTMLVideoElement>(null)
   const cleanupRef = useRef<() => void>(() => {})
   // Altijd de actuele onClose voor de native exit-callback.
@@ -284,8 +286,8 @@ export default function Player({ request, onClose }: PlayerProps) {
         <div className="min-w-0">
           <p className="truncate text-base font-bold text-mist">{request.title}</p>
           <p className="text-xs text-mist-300">
-            {request.kind === 'live' ? 'Live' : request.kind === 'series' ? 'Serie' : 'Film'}
-            {status === 'playing' && ' · speelt af'}
+            {request.kind === 'live' ? t('player.live') : request.kind === 'series' ? t('player.serie') : t('player.film')}
+            {status === 'playing' && ` · ${t('player.playing')}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -339,9 +341,7 @@ export default function Player({ request, onClose }: PlayerProps) {
         {(status === 'loading' || status === 'native') && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center gap-3 text-center">
             <span className="h-12 w-12 animate-spin rounded-full border-[3px] border-white/20 border-t-buisgroen" />
-            {status === 'native' && (
-              <span className="text-sm text-mist-400">Speelt af in de native speler…</span>
-            )}
+            {status === 'native' && <span className="text-sm text-mist-400">{t('player.native')}</span>}
           </div>
         )}
 
@@ -355,15 +355,12 @@ export default function Player({ request, onClose }: PlayerProps) {
               </div>
               {status === 'demo' ? (
                 <>
-                  <h3 className="text-lg font-bold text-mist">Demo-item</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-mist-400">
-                    Dit is mockdata zonder echte stream. Laad een eigen M3U-playlist of
-                    Xtream-account om te kunnen afspelen.
-                  </p>
+                  <h3 className="text-lg font-bold text-mist">{t('player.demoTitle')}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-mist-400">{t('player.demoBody')}</p>
                 </>
               ) : (
                 <>
-                  <h3 className="text-lg font-bold text-mist">Afspelen lukt niet</h3>
+                  <h3 className="text-lg font-bold text-mist">{t('player.errorTitle')}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-mist-400">{message}</p>
                 </>
               )}
@@ -371,7 +368,7 @@ export default function Player({ request, onClose }: PlayerProps) {
                 onClick={onClose}
                 className="mt-5 rounded-full bg-buisgroen px-6 py-2.5 text-sm font-bold text-antraciet-900 outline-none focus-visible:ring-2 focus-visible:ring-buisgroen"
               >
-                Sluiten
+                {t('common.close')}
               </button>
             </div>
           </div>

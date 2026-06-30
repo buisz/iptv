@@ -97,6 +97,10 @@ export function removeProgress(id: string): void {
   }
 }
 
+export function clearProgress(): void {
+  writeAll({})
+}
+
 /** Hervatpositie (seconden) voor een item, of undefined. */
 export function resumePosition(id: string): number | undefined {
   return readAll()[id]?.positionSec
