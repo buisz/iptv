@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Buisz IPTV — Netflix-stijl player voor M3U & Xtream",
   "scripts": {
+    "predev": "node scripts/ensure-deps.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:proxy": "VITE_PROXY_BASE=/__proxy npm run build",
