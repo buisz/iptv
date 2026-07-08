@@ -72,12 +72,17 @@ const MIN_LIMIT = 1
 const MAX_LIMIT = 8
 const GROW_AFTER = 6 // opeenvolgende successen vóór we de limiet met 1 verhogen
 
+const MIN_GAP = 120 // ms min-interval tussen call-starts (pacing), adaptief
+const MAX_GAP = 1500
+
 interface HostLimiter {
   limit: number
   active: number
   queue: Array<() => void>
   successStreak: number
   cooldownUntil: number
+  gap: number // min-interval tussen starts
+  lastStart: number
 }
 const limiters = new Map<string, HostLimiter>()
 
@@ -91,7 +96,7 @@ function hostOf(url: string): string {
 function limiterFor(host: string): HostLimiter {
   let l = limiters.get(host)
   if (!l) {
-    l = { limit: START_LIMIT, active: 0, queue: [], successStreak: 0, cooldownUntil: 0 }
+    l = { limit: START_LIMIT, active: 0, queue: [], successStreak: 0, cooldownUntil: 0, gap: MIN_GAP, lastStart: 0 }
     limiters.set(host, l)
   }
   return l
@@ -103,9 +108,13 @@ function wait(ms: number): Promise<void> {
 async function acquire(l: HostLimiter): Promise<void> {
   if (l.active >= l.limit) await new Promise<void>((r) => l.queue.push(r))
   l.active++
-  // Respecteer een lopende cooldown (na een 429) vóór we daadwerkelijk vuren.
+  // Pacing: houd een min-interval tussen call-starts aan, plus een lopende cooldown
+  // (na 429). We claimen het start-slot meteen zodat parallelle acquires niet
+  // samenklonteren, en wachten dan tot dat slot bereikt is.
   const now = Date.now()
-  if (l.cooldownUntil > now) await wait(l.cooldownUntil - now)
+  const startAt = Math.max(now, l.lastStart + l.gap, l.cooldownUntil)
+  l.lastStart = startAt
+  if (startAt > now) await wait(startAt - now)
 }
 function release(l: HostLimiter): void {
   l.active--
@@ -113,12 +122,14 @@ function release(l: HostLimiter): void {
 }
 function onThrottled(l: HostLimiter, retryAfterMs: number): void {
   l.limit = Math.max(MIN_LIMIT, Math.floor(l.limit / 2))
+  l.gap = Math.min(MAX_GAP, Math.round(l.gap * 1.8)) // trager tempo
   l.successStreak = 0
   l.cooldownUntil = Math.max(l.cooldownUntil, Date.now() + retryAfterMs)
 }
 function onSuccess(l: HostLimiter): void {
-  if (++l.successStreak >= GROW_AFTER && l.limit < MAX_LIMIT) {
-    l.limit++
+  if (++l.successStreak >= GROW_AFTER) {
+    if (l.limit < MAX_LIMIT) l.limit++
+    l.gap = Math.max(MIN_GAP, Math.round(l.gap * 0.8)) // langzaam weer versnellen
     l.successStreak = 0
   }
 }

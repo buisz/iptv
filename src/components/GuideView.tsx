@@ -58,6 +58,14 @@ function GuideRow({ item, rowIndex, source, onPlay, onFavoriteChange }: GuideRow
   const now = Date.now()
   const logo = item.backdrop || item.poster
 
+  // Toon alleen lopende + komende programma's, ontdubbel (zelfde starttijd) en bepaal
+  // precies één "Nu" (de meest recente die al begonnen is). Voorkomt meerdere "Nu"-blokken.
+  const list = (epg ?? [])
+    .filter((p) => p.stop > now)
+    .filter((p, i, a) => i === 0 || p.start !== a[i - 1].start)
+  let nowIdx = -1
+  for (let i = 0; i < list.length; i++) if (list[i].start <= now) nowIdx = i
+
   return (
     <div
       ref={rowRef}
@@ -93,11 +101,11 @@ function GuideRow({ item, rowIndex, source, onPlay, onFavoriteChange }: GuideRow
       <div className="row-scroll flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
         {epg === null ? (
           <div className="h-12 w-full animate-pulse-soft rounded-lg bg-white/[0.04]" />
-        ) : epg.length === 0 ? (
+        ) : list.length === 0 ? (
           <span className="px-2 text-xs text-mist-400">{t('guide.none')}</span>
         ) : (
-          epg.map((p, i) => {
-            const isNow = p.start <= now && now < p.stop
+          list.map((p, i) => {
+            const isNow = i === nowIdx
             const pct = isNow ? Math.min(100, Math.max(0, ((now - p.start) / (p.stop - p.start)) * 100)) : 0
             return (
               <div
