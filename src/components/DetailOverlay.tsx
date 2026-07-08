@@ -308,11 +308,13 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
             </div>
           )}
 
-          {/* Fase-2 hint */}
-          <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-xs leading-relaxed text-mist-300">
-            Dit is een visueel prototype met demodata. In fase 2 worden afspelen,
-            trailers en metadata gekoppeld aan je eigen M3U-playlist of Xtream-account.
-          </p>
+          {/* Demo-hint — alleen bij de demobron (echte items hebben een streamUrl). */}
+          {!item.streamUrl && !item.seasons && (
+            <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-xs leading-relaxed text-mist-300">
+              Dit is een visueel prototype met demodata. Laad je eigen M3U-playlist of
+              Xtream-account om echt af te spelen.
+            </p>
+          )}
         </div>
       </div>
     </div>

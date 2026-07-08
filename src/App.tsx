@@ -15,7 +15,8 @@ import type { Source } from './types/source'
 import { useSpatialNav } from './hooks/useSpatialNav'
 import { useCatalog } from './hooks/useCatalog'
 import { enrichItem } from './api/tmdb'
-import { loadSeriesInfo, loadVodQuality } from './api/xtream'
+import { loadSeriesInfo, loadShortEpg, loadVodQuality } from './api/xtream'
+import { nowNext } from './api/epg'
 import { getContinueWatching } from './api/progress'
 import { getFavorites } from './api/favorites'
 import { useT } from './i18n'
@@ -200,6 +201,20 @@ export default function App() {
         if (quality) enriched = { ...enriched, quality }
       } catch {
         /* vod-info optioneel — val terug op naam-heuristiek */
+      }
+    }
+
+    // Xtream-live: betrouwbare nu/straks via get_short_epg (per stream_id), ook als de
+    // XMLTV-id/naam niet matcht.
+    if (item.ref?.kind === 'xtream-live' && !enriched.epgNow && source.kind === 'xtream') {
+      try {
+        const list = await loadShortEpg(source, item.ref.id)
+        const { now, next } = nowNext(list, Date.now())
+        if (now || next) {
+          enriched = { ...enriched, epgNow: now, epgNext: next, tagline: now ? `Nu: ${now.title}` : enriched.tagline }
+        }
+      } catch {
+        /* short-epg optioneel */
       }
     }
 

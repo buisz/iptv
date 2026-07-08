@@ -7,7 +7,7 @@
  *
  * Alle netwerkverkeer loopt in dev via de CORS-proxy (zie api/proxy.ts).
  */
-import type { Catalog, ContentRowData, MediaItem } from '../types/content'
+import type { Catalog, ContentRowData, EpgEntry, MediaItem } from '../types/content'
 import type { XtreamSource, LiveFormatPreset } from '../types/source'
 import { fetchJson } from './proxy'
 import { normalizeCodec, qualityFromName, resFromHeight } from './quality'
@@ -106,6 +106,53 @@ export function xmltvUrl(s: XtreamSource): string {
   return `${origin(s)}/xmltv.php?${params.toString()}`
 }
 
+interface XtreamShortEpgItem {
+  title?: string
+  start?: string
+  end?: string
+  start_timestamp?: string | number
+  stop_timestamp?: string | number
+}
+
+/** Xtream-titels in get_short_epg zijn base64 (UTF-8). Veilig decoderen. */
+function decodeB64(s?: string): string {
+  if (!s) return ''
+  try {
+    return decodeURIComponent(escape(atob(s)))
+  } catch {
+    return s
+  }
+}
+
+/**
+ * Betrouwbare per-kanaal-EPG via `get_short_epg` (de provider lost het op via
+ * stream_id — geen id/naam-matching nodig). Basis voor detail-nu/straks én de
+ * toekomstige tijdlijn-weergave.
+ */
+export async function loadShortEpg(
+  s: XtreamSource,
+  streamId: string | number,
+  limit = 12,
+  signal?: AbortSignal,
+): Promise<EpgEntry[]> {
+  const data = await fetchJson<{ epg_listings?: XtreamShortEpgItem[] }>(
+    apiUrl(s, 'get_short_epg', { stream_id: streamId, limit }),
+    signal,
+  )
+  const out: EpgEntry[] = []
+  for (const e of data.epg_listings ?? []) {
+    const start = Number(e.start_timestamp) * 1000 || Date.parse((e.start ?? '').replace(' ', 'T'))
+    const stopRaw = Number(e.stop_timestamp) * 1000 || Date.parse((e.end ?? '').replace(' ', 'T'))
+    if (!isFinite(start)) continue
+    out.push({
+      title: decodeB64(e.title) || 'Programma',
+      start,
+      stop: isFinite(stopRaw) ? stopRaw : start + 30 * 60_000,
+    })
+  }
+  return out.sort((a, b) => a.start - b.start)
+}
+
 export function seriesStreamUrl(s: XtreamSource, episodeId: string | number, ext = 'mp4'): string {
   return `${origin(s)}/series/${s.username}/${s.password}/${episodeId}.${ext}`
 }
@@ -134,6 +181,7 @@ function mapLive(s: XtreamSource, c: XtreamLive): MediaItem {
     isLiveNow: true,
     streamUrl: liveStreamUrl(s, c.stream_id),
     epgChannelId: c.epg_channel_id || undefined,
+    ref: { kind: 'xtream-live', id: c.stream_id },
     quality: qualityFromName(c.name),
     synopsis: '',
   }

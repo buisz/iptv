@@ -51,8 +51,8 @@ export interface MediaItem {
   // ── Fase 2: koppeling met echte bronnen ──
   /** Directe afspeel-URL (live/film). Bij series zit de URL per aflevering. */
   streamUrl?: string
-  /** Provider-referentie voor lui naladen (bijv. Xtream series_id / vod_id). */
-  ref?: { kind: 'xtream-series' | 'xtream-vod'; id: string | number }
+  /** Provider-referentie voor lui naladen (bijv. Xtream series_id / vod_id / live stream_id). */
+  ref?: { kind: 'xtream-series' | 'xtream-vod' | 'xtream-live'; id: string | number }
   /** Of TMDB-verrijking al is toegepast op dit item. */
   enriched?: boolean
 
