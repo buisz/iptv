@@ -416,6 +416,8 @@ export async function loadXtreamCatalog(s: XtreamSource, signal?: AbortSignal): 
     hero,
     sourceLabel: `Xtream · ${s.host}`,
     epgUrl: xmltvUrl(s),
+    // Volledige (ongekapte) lijst voor zoeken — al opgehaald, alleen niet allemaal getoond.
+    allItems: [...live, ...vod, ...series].map((p) => p.item),
     notices: notices.length ? notices : undefined,
   }
 }

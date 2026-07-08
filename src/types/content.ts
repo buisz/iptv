@@ -116,4 +116,9 @@ export interface Catalog {
   epgUrl?: string
   /** Niet-fatale meldingen, bijv. afgekapte rijen of overgeslagen items. */
   notices?: string[]
+  /**
+   * Volledige itemlijst (ongekapt) voor zoeken. De `sections`/`rows` zijn voor de
+   * weergave afgekapt; deze lijst bevat álles zodat zoeken de hele bibliotheek dekt.
+   */
+  allItems?: MediaItem[]
 }

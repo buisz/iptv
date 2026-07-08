@@ -197,6 +197,7 @@ export function playlistToCatalog(
     hero,
     sourceLabel,
     epgUrl: playlist.epgUrl,
+    allItems: [...live, ...movies, ...series],
     notices: notices.length ? notices : undefined,
   }
 }

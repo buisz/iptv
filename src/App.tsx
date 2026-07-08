@@ -104,19 +104,24 @@ export default function App() {
     return [...extra, ...base]
   }, [activeSection, continueRow, favoritesRow])
 
-  // Alle unieke items uit de catalogus, voor zoeken.
+  // Alle unieke items voor zoeken. Voorkeur: de volledige (ongekapte) bibliotheek
+  // (catalog.allItems); anders afgeleid uit de zichtbare rijen (bijv. demobron).
   const allItems = useMemo(() => {
     const seen = new Set<string>()
-    const out = []
-    for (const sec of sections)
-      for (const row of sec.rows)
-        for (const item of row.items)
-          if (!seen.has(item.id)) {
-            seen.add(item.id)
-            out.push(item)
-          }
+    const out: MediaItem[] = []
+    const push = (item: MediaItem) => {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        out.push(item)
+      }
+    }
+    if (catalog.allItems?.length) {
+      for (const item of catalog.allItems) push(item)
+    } else {
+      for (const sec of sections) for (const row of sec.rows) for (const item of row.items) push(item)
+    }
     return out
-  }, [sections])
+  }, [sections, catalog.allItems])
 
   const liveChannels = useMemo(() => allItems.filter((i) => i.kind === 'live'), [allItems])
 
