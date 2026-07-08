@@ -82,6 +82,9 @@ export default function Player({ request, onClose }: PlayerProps) {
   onCloseRef.current = onClose
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
+  // Technische detailregel (zoals de browserconsole), achter een "Toon details"-knop.
+  const [detail, setDetail] = useState('')
+  const [showDetail, setShowDetail] = useState(false)
   // Chromecast (CAF) beschikbaar in deze browser? AirPlay (WebKit) beschikbaar?
   const [castAvailable, setCastAvailable] = useState(false)
   const [airplayAvailable, setAirplayAvailable] = useState(false)
@@ -259,16 +262,20 @@ export default function Player({ request, onClose }: PlayerProps) {
     let cancelled = false
     setStatus('loading')
     setMessage('')
+    setDetail('')
+    setShowDetail(false)
 
     const streamId = request.id
     // Toon de fout + registreer de categorie (voor de geo-/netwerkdiagnose). Bij een
     // netwerkfout én bewijs dat het account/API wél werkt, plakken we de geo-hint erbij.
-    const fail = (msg: string, category: FailCategory = 'unknown') => {
+    // `tech` is de ruwe technische regel (zoals de console) achter "Toon details".
+    const fail = (msg: string, category: FailCategory = 'unknown', tech = '') => {
       if (cancelled) return
       recordStreamFailure(streamId, category)
       const full = category === 'network' && geoBlockSuspected() ? `${msg}\n\n${geoBlockHint()}` : msg
       setStatus('error')
       setMessage(full)
+      setDetail([tech, url && `URL: ${url}`].filter(Boolean).join('\n'))
     }
 
     const preset = getBufferPreset()
@@ -298,13 +305,14 @@ export default function Player({ request, onClose }: PlayerProps) {
             hls.on(Hls.Events.ERROR, (_e, data) => {
               if (!data.fatal) return
               const status = (data.response as { code?: number } | undefined)?.code
+              const tech = `hls.js ${data.type} · ${data.details}${status ? ` · HTTP ${status}` : ''}`
               if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                fail(codecHint('HLS'), 'codec')
+                fail(codecHint('HLS'), 'codec', tech)
               } else if (status && status >= 400 && status !== 502 && status !== 504) {
-                fail(httpHint(status), httpCategory(status))
+                fail(httpHint(status), httpCategory(status), tech)
               } else {
                 // Geen provider-status (of onze proxy-502/504) → netwerklaag.
-                fail(networkBase, 'network')
+                fail(networkBase, 'network', tech)
               }
             })
             cleanupRef.current = () => hls.destroy()
@@ -327,7 +335,10 @@ export default function Player({ request, onClose }: PlayerProps) {
               mpegts.Events.ERROR,
               (errorType: string, errorDetail: string, info?: { code?: number; msg?: string }) => {
                 const { msg, category } = mpegtsError(mpegts, errorType, errorDetail, info)
-                fail(msg, category)
+                const tech = `mpegts.js ${errorType} · ${errorDetail}${
+                  info?.code ? ` · HTTP ${info.code}` : ''
+                }${info?.msg ? ` · ${info.msg}` : ''}`
+                fail(msg, category, tech)
               },
             )
             player.load()
@@ -346,8 +357,8 @@ export default function Player({ request, onClose }: PlayerProps) {
           video!.removeAttribute('src')
           video!.load()
         }
-      } catch {
-        fail('Afspeelmotor kon niet geladen worden.', 'unknown')
+      } catch (e) {
+        fail('Afspeelmotor kon niet geladen worden.', 'unknown', String((e as Error)?.message || e))
       }
     }
 
@@ -381,11 +392,14 @@ export default function Player({ request, onClose }: PlayerProps) {
     const onErr = () => {
       // MediaError-code: 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED.
       const code = video.error?.code
+      const tech = `HTMLMediaElement MediaError code ${code ?? '?'}${
+        video.error?.message ? ` · ${video.error.message}` : ''
+      }`
       const m = url ? url.match(/\.(mkv|avi|wmv|flv)(\?|$)/i) : null
-      if (m) fail(containerHint(m[1].toUpperCase()), 'container')
-      else if (code === 3 || code === 4) fail(codecHint('stream'), 'codec')
-      else if (code === 2) fail(networkBase, 'network')
-      else fail('Deze stream speelt niet af in de browser.', 'unknown')
+      if (m) fail(containerHint(m[1].toUpperCase()), 'container', tech)
+      else if (code === 3 || code === 4) fail(codecHint('stream'), 'codec', tech)
+      else if (code === 2) fail(networkBase, 'network', tech)
+      else fail('Deze stream speelt niet af in de browser.', 'unknown', tech)
     }
     video.addEventListener('playing', onPlaying)
     video.addEventListener('error', onErr)
@@ -518,7 +532,23 @@ export default function Player({ request, onClose }: PlayerProps) {
               ) : (
                 <>
                   <h3 className="text-lg font-bold text-mist">{t('player.errorTitle')}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-mist-400">{message}</p>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-mist-400">{message}</p>
+                  {detail && (
+                    <div className="mt-3 text-left">
+                      <button
+                        onClick={() => setShowDetail((s) => !s)}
+                        aria-expanded={showDetail}
+                        className="text-xs font-semibold text-mist-300 underline decoration-dotted underline-offset-2 outline-none hover:text-buisgroen focus-visible:text-buisgroen"
+                      >
+                        {showDetail ? t('player.hideDetails') : t('player.showDetails')}
+                      </button>
+                      {showDetail && (
+                        <pre className="mt-2 max-h-40 overflow-auto rounded-lg border border-white/10 bg-antraciet-900/70 p-3 text-left text-[11px] leading-relaxed text-mist-300 whitespace-pre-wrap break-words">
+                          {detail}
+                        </pre>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
               <button
