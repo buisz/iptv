@@ -67,9 +67,12 @@ export function parseXmltv(text: string): EpgIndex {
     if (Number.isNaN(start)) continue
 
     const title = decodeEntities(body.match(TITLE_RE)?.[1] ?? '') || 'Programma'
-    const list = index.get(channel) ?? []
+    // Normaliseer de kanaal-id (kleine letters, geen randspaties): providers wijken af
+    // in casing tussen de XMLTV-`channel` en de stream-`tvg-id`/`epg_channel_id`.
+    const key = channel.toLowerCase().trim()
+    const list = index.get(key) ?? []
     list.push({ title, start, stop })
-    index.set(channel, list)
+    index.set(key, list)
   }
 
   for (const list of index.values()) list.sort((a, b) => a.start - b.start)
@@ -100,7 +103,7 @@ export function applyEpg(catalog: Catalog, index: EpgIndex, at: number): Catalog
 
   const enrich = (item: MediaItem): MediaItem => {
     if (item.kind !== 'live' || !item.epgChannelId) return item
-    const { now, next } = nowNext(index.get(item.epgChannelId), at)
+    const { now, next } = nowNext(index.get(item.epgChannelId.toLowerCase().trim()), at)
     if (!now && !next) return item
     return {
       ...item,

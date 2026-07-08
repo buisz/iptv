@@ -100,6 +100,12 @@ export function vodStreamUrl(s: XtreamSource, streamId: string | number, ext = '
   return `${origin(s)}/movie/${s.username}/${s.password}/${streamId}.${ext}`
 }
 
+/** Volledige XMLTV-EPG van een Xtream-server (standaard-endpoint). */
+export function xmltvUrl(s: XtreamSource): string {
+  const params = new URLSearchParams({ username: s.username, password: s.password })
+  return `${origin(s)}/xmltv.php?${params.toString()}`
+}
+
 export function seriesStreamUrl(s: XtreamSource, episodeId: string | number, ext = 'mp4'): string {
   return `${origin(s)}/series/${s.username}/${s.password}/${episodeId}.${ext}`
 }
@@ -361,6 +367,7 @@ export async function loadXtreamCatalog(s: XtreamSource, signal?: AbortSignal): 
     sections,
     hero,
     sourceLabel: `Xtream · ${s.host}`,
+    epgUrl: xmltvUrl(s),
     notices: notices.length ? notices : undefined,
   }
 }
