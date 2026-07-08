@@ -229,7 +229,15 @@ export default function Player({ request, onClose }: PlayerProps) {
             hls.loadSource(url!)
             hls.attachMedia(video!)
             hls.on(Hls.Events.ERROR, (_e, data) => {
-              if (data.fatal) fail(corsHint('HLS-stream kon niet geladen worden.'))
+              if (!data.fatal) return
+              const status = (data.response as { code?: number } | undefined)?.code
+              if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                fail(codecHint('HLS'))
+              } else if (status && status >= 400) {
+                fail(httpHint(status))
+              } else {
+                fail(corsHint('HLS-stream kon niet geladen worden.'))
+              }
             })
             cleanupRef.current = () => hls.destroy()
             return
@@ -248,8 +256,11 @@ export default function Player({ request, onClose }: PlayerProps) {
               { enableWorker: true, liveBufferLatencyChasing: request!.kind === 'live' },
             )
             player.attachMediaElement(video!)
-            player.on(mpegts.Events.ERROR, () =>
-              fail(corsHint('MPEG-TS-stream kon niet geladen worden.')),
+            player.on(
+              mpegts.Events.ERROR,
+              (errorType: string, errorDetail: string, info?: { code?: number; msg?: string }) => {
+                fail(mpegtsErrorMessage(mpegts, errorType, errorDetail, info))
+              },
             )
             player.load()
             cleanupRef.current = () => {
@@ -272,7 +283,13 @@ export default function Player({ request, onClose }: PlayerProps) {
 
     void attach()
     const onPlaying = () => !cancelled && setStatus('playing')
-    const onErr = () => fail(corsHint('Deze stream speelt niet af in de browser.'))
+    const onErr = () => {
+      // MediaError-code: 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED.
+      const code = video.error?.code
+      if (code === 3 || code === 4) fail(codecHint('stream'))
+      else if (code === 2) fail(corsHint('Deze stream speelt niet af in de browser.'))
+      else fail('Deze stream speelt niet af in de browser.')
+    }
     video.addEventListener('playing', onPlaying)
     video.addEventListener('error', onErr)
 
@@ -395,4 +412,50 @@ function corsHint(base: string): string {
     `${base} In een browser blokkeert CORS vaak directe IPTV-streams. ` +
     `Op de doel-box (Android TV / Fire Stick) of achter een proxy speelt dit wél af.`
   )
+}
+
+/** Codec/decodeerfout — géén CORS. De browser kan het formaat niet decoderen. */
+function codecHint(what: string): string {
+  return (
+    `Deze ${what} gebruikt een codec of audioformaat dat de browser niet kan decoderen ` +
+    `(bijv. HEVC/H.265-video of AC-3/MP2-audio). Dit is géén CORS-probleem. ` +
+    `Speel af op de box (Android TV / Fire Stick / Tizen) — daar decodeert de hardware dit wél.`
+  )
+}
+
+/** Server gaf een foutstatus terug (login/limiet/offline) — géén CORS. */
+function httpHint(status: number): string {
+  const reason =
+    status === 401 || status === 403
+      ? 'inloggegevens geweigerd'
+      : status === 404
+        ? 'zender niet gevonden'
+        : status === 512 || status === 509
+          ? 'account of max. verbindingen bereikt'
+          : 'server weigerde de stream'
+  return (
+    `De server antwoordde met HTTP ${status} (${reason}). Dit is géén CORS-probleem. ` +
+    `Controleer je account, of het kanaal nog bestaat, en of je niet te veel gelijktijdige verbindingen gebruikt.`
+  )
+}
+
+/**
+ * Vertaalt een mpegts.js-fout naar een eerlijke melding: MEDIA_ERROR = codec (geen
+ * CORS), NETWORK_ERROR met HTTP-status ≥400 = serverfout, anders netwerk/CORS.
+ */
+function mpegtsErrorMessage(
+  mpegts: { ErrorTypes: { NETWORK_ERROR: string; MEDIA_ERROR: string } },
+  errorType: string,
+  _errorDetail: string,
+  info?: { code?: number },
+): string {
+  if (errorType === mpegts.ErrorTypes.MEDIA_ERROR) {
+    return codecHint('live-zender')
+  }
+  if (errorType === mpegts.ErrorTypes.NETWORK_ERROR) {
+    const code = info?.code
+    if (typeof code === 'number' && code >= 400) return httpHint(code)
+    return corsHint('MPEG-TS-stream kon niet geladen worden (netwerkfout).')
+  }
+  return 'MPEG-TS-stream kon niet afgespeeld worden.'
 }
