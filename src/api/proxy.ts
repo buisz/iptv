@@ -58,42 +58,89 @@ function workerProxyBase(): string {
   }
 }
 
-// ── Rate-limiting van data-calls ──────────────────────────────────────────────
-// Providers throttelen API-calls (429). We houden het aantal gelijktijdige
-// data-verzoeken laag (semafoor) en retryen 429/503 met backoff. Dit geldt alléén
-// voor data (catalogus/EPG); video-streams lopen buiten deze wrapper om.
-const MAX_CONCURRENT = 4
-let active = 0
-const waiters: Array<() => void> = []
+// ── Adaptieve, per-provider rate-limiting van data-calls ─────────────────────
+// Providers throttelen API-calls (429), maar hun limieten kennen we niet — zeker
+// niet voor onbekende providers. Daarom is dit zelf-lerend (AIMD, zoals TCP): start
+// voorzichtig, bij 429/503 halveren we de toegestane gelijktijdigheid (en houden een
+// cooldown aan, met respect voor Retry-After), en bij aanhoudend succes klimmen we
+// weer voorzichtig op. Alles **per host**, zodat elke provider zijn eigen budget krijgt.
+// Geldt alleen voor data (catalogus/EPG); video-streams lopen hier buiten om.
+// Deze laag zit in de gedeelde data-code, dus het werkt op elk platform (web/PWA/TV;
+// ook de native app draait deze TS).
+const START_LIMIT = 4
+const MIN_LIMIT = 1
+const MAX_LIMIT = 8
+const GROW_AFTER = 6 // opeenvolgende successen vóór we de limiet met 1 verhogen
 
-async function acquire(): Promise<void> {
-  if (active >= MAX_CONCURRENT) await new Promise<void>((r) => waiters.push(r))
-  active++
+interface HostLimiter {
+  limit: number
+  active: number
+  queue: Array<() => void>
+  successStreak: number
+  cooldownUntil: number
 }
-function release(): void {
-  active--
-  waiters.shift()?.()
-}
+const limiters = new Map<string, HostLimiter>()
 
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return 'default'
+  }
+}
+function limiterFor(host: string): HostLimiter {
+  let l = limiters.get(host)
+  if (!l) {
+    l = { limit: START_LIMIT, active: 0, queue: [], successStreak: 0, cooldownUntil: 0 }
+    limiters.set(host, l)
+  }
+  return l
+}
 function wait(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-/** Data-fetch via de proxy met concurrency-limiet en 429/503-retry (backoff). */
+async function acquire(l: HostLimiter): Promise<void> {
+  if (l.active >= l.limit) await new Promise<void>((r) => l.queue.push(r))
+  l.active++
+  // Respecteer een lopende cooldown (na een 429) vóór we daadwerkelijk vuren.
+  const now = Date.now()
+  if (l.cooldownUntil > now) await wait(l.cooldownUntil - now)
+}
+function release(l: HostLimiter): void {
+  l.active--
+  l.queue.shift()?.()
+}
+function onThrottled(l: HostLimiter, retryAfterMs: number): void {
+  l.limit = Math.max(MIN_LIMIT, Math.floor(l.limit / 2))
+  l.successStreak = 0
+  l.cooldownUntil = Math.max(l.cooldownUntil, Date.now() + retryAfterMs)
+}
+function onSuccess(l: HostLimiter): void {
+  if (++l.successStreak >= GROW_AFTER && l.limit < MAX_LIMIT) {
+    l.limit++
+    l.successStreak = 0
+  }
+}
+
+/** Data-fetch via de proxy met adaptieve, per-host limiet en 429/503-retry. */
 async function dataFetch(url: string, signal?: AbortSignal): Promise<Response> {
-  await acquire()
+  const l = limiterFor(hostOf(url))
+  await acquire(l)
   try {
     let res = await fetch(proxied(url), { signal })
-    for (let attempt = 0; (res.status === 429 || res.status === 503) && attempt < 3; attempt++) {
+    for (let attempt = 0; (res.status === 429 || res.status === 503) && attempt < 4; attempt++) {
       const retryAfter = Number(res.headers.get('retry-after'))
-      const delay = retryAfter > 0 ? retryAfter * 1000 : 500 * 2 ** attempt
-      await wait(delay)
+      const backoff = retryAfter > 0 ? retryAfter * 1000 : Math.min(8000, 500 * 2 ** attempt)
+      onThrottled(l, backoff)
+      await wait(backoff)
       if (signal?.aborted) break
       res = await fetch(proxied(url), { signal })
     }
+    if (res.ok) onSuccess(l)
     return res
   } finally {
-    release()
+    release(l)
   }
 }
 
