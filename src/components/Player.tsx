@@ -213,7 +213,19 @@ export default function Player({ request, onClose }: PlayerProps) {
           const Hls = (await import('hls.js')).default
           if (cancelled) return
           if (Hls.isSupported()) {
-            const hls = new Hls({ enableWorker: true })
+            // hls.js haalt manifest én segmenten via fetch/XHR op → CORS. We routeren
+            // ELK verzoek via de proxy. De proxy herschrijft m3u8-URI's naar absoluut,
+            // zodat de segment-loader hier absolute URL's krijgt die we óók proxyen.
+            const Base = Hls.DefaultConfig.loader as unknown as {
+              new (config: unknown): { load(c: { url: string }, cfg: unknown, cb: unknown): void }
+            }
+            class ProxyLoader extends Base {
+              load(context: { url: string }, config: unknown, callbacks: unknown) {
+                if (context?.url) context.url = proxied(context.url)
+                super.load(context, config, callbacks)
+              }
+            }
+            const hls = new Hls({ enableWorker: true, loader: ProxyLoader as never })
             hls.loadSource(url!)
             hls.attachMedia(video!)
             hls.on(Hls.Events.ERROR, (_e, data) => {

@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { Readable } from 'node:stream'
+import { isM3u8, rewriteM3u8 } from './server/m3u8.mjs'
 
 /**
  * Dev-proxy voor CORS.
@@ -30,6 +31,18 @@ function devProxy(): Plugin {
           const upstream = await fetch(target, { headers, redirect: 'follow' })
 
           res.statusCode = upstream.status
+          const contentType = upstream.headers.get('content-type')
+
+          // HLS-manifest: buffer + herschrijf URI's naar absoluut (klein, eindig).
+          if (isM3u8(contentType, target)) {
+            const text = rewriteM3u8(await upstream.text(), target)
+            res.setHeader('content-type', contentType || 'application/vnd.apple.mpegurl')
+            res.setHeader('access-control-allow-origin', '*')
+            res.setHeader('cache-control', 'no-store')
+            res.end(text)
+            return
+          }
+
           for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
             const v = upstream.headers.get(h)
             if (v) res.setHeader(h, v)

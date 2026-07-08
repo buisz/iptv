@@ -19,6 +19,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { join, normalize, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
+import { isM3u8, rewriteM3u8 } from './m3u8.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'dist')
@@ -49,6 +50,18 @@ async function handleProxy(req, res, target) {
     const upstream = await fetch(target, { headers, redirect: 'follow' })
 
     res.statusCode = upstream.status
+    const contentType = upstream.headers.get('content-type')
+
+    // HLS-manifest: buffer + herschrijf URI's naar absoluut (klein, eindig).
+    if (isM3u8(contentType, target)) {
+      const text = rewriteM3u8(await upstream.text(), target)
+      res.setHeader('content-type', contentType || 'application/vnd.apple.mpegurl')
+      res.setHeader('access-control-allow-origin', '*')
+      res.setHeader('cache-control', 'no-store')
+      res.end(text)
+      return
+    }
+
     for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
       const v = upstream.headers.get(h)
       if (v) res.setHeader(h, v)

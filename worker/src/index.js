@@ -39,6 +39,44 @@ function genCode(len = 6) {
   return out
 }
 
+/** Is dit waarschijnlijk een m3u8-playlist? (content-type of extensie). */
+function isM3u8(contentType, targetUrl) {
+  const ct = (contentType || '').toLowerCase()
+  if (ct.includes('mpegurl')) return true
+  try {
+    const u = new URL(targetUrl)
+    return /\.m3u8(\?|$)/i.test(u.pathname + u.search)
+  } catch {
+    return /\.m3u8(\?|$)/i.test(targetUrl || '')
+  }
+}
+
+/**
+ * Maakt elke segment-/URI-verwijzing in een HLS-playlist absoluut t.o.v. baseUrl,
+ * zodat de speler ze zelf weer door de proxy kan sturen (i.p.v. relatief t.o.v.
+ * het proxy-pad, wat kapot zou gaan).
+ */
+function rewriteM3u8(text, baseUrl) {
+  const abs = (u) => {
+    try {
+      return new URL(u, baseUrl).toString()
+    } catch {
+      return u
+    }
+  }
+  return text
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return line
+      if (trimmed.startsWith('#')) {
+        return line.replace(/URI="([^"]*)"/g, (_m, u) => `URI="${abs(u)}"`)
+      }
+      return abs(trimmed)
+    })
+    .join('\n')
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
@@ -54,6 +92,18 @@ export default {
       const range = request.headers.get('range')
       if (range) headers.set('range', range)
       const upstream = await fetch(target, { headers, redirect: 'follow' })
+      const contentType = upstream.headers.get('content-type')
+
+      // HLS-manifest: herschrijf de URI's naar absoluut, zodat de speler ze
+      // vervolgens zelf weer door /proxy stuurt (segmenten blijven streamen).
+      if (isM3u8(contentType, target)) {
+        const text = rewriteM3u8(await upstream.text(), target)
+        const h = new Headers(CORS)
+        h.set('content-type', contentType || 'application/vnd.apple.mpegurl')
+        h.set('cache-control', 'no-store')
+        return new Response(text, { status: upstream.status, headers: h })
+      }
+
       const respHeaders = new Headers(CORS)
       for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
         const v = upstream.headers.get(h)
