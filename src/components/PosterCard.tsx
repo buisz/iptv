@@ -11,9 +11,11 @@ interface PosterCardProps {
   onOpen: (item: MediaItem) => void
   /** Aangeroepen na (ont)favorieten, zodat de bovenliggende favorieten-rij ververst. */
   onFavoriteChange?: () => void
+  /** Vul de breedte van de container (grid) i.p.v. een vaste rij-breedte. */
+  fill?: boolean
 }
 
-export default function PosterCard({ item, row, col, showProgress, onOpen, onFavoriteChange }: PosterCardProps) {
+export default function PosterCard({ item, row, col, showProgress, onOpen, onFavoriteChange, fill }: PosterCardProps) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [fav, setFav] = useState(() => isFavorite(item.id))
@@ -42,7 +44,13 @@ export default function PosterCard({ item, row, col, showProgress, onOpen, onFav
         'ring-1 ring-white/[0.06]',
         'hover:scale-[1.05] hover:z-10 hover:ring-buisgroen/70 hover:shadow-focus',
         'focus-visible:scale-[1.05] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-buisgroen focus-visible:shadow-focus',
-        isLive ? 'aspect-video w-[260px] sm:w-[300px]' : 'aspect-[2/3] w-[150px] sm:w-[176px]',
+        fill
+          ? isLive
+            ? 'aspect-video w-full'
+            : 'aspect-[2/3] w-full'
+          : isLive
+            ? 'aspect-video w-[260px] sm:w-[300px]'
+            : 'aspect-[2/3] w-[150px] sm:w-[176px]',
       ].join(' ')}
     >
       {/* Achtergrondgloed-fallback terwijl de afbeelding laadt of ontbreekt. */}

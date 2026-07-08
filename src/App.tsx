@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import NavBar from './components/NavBar'
 import HeroBanner from './components/HeroBanner'
 import ContentRow from './components/ContentRow'
+import LiveBrowser from './components/LiveBrowser'
 import DetailOverlay from './components/DetailOverlay'
 import SourceModal from './components/SourceModal'
 import OnboardingWizard from './components/OnboardingWizard'
@@ -88,19 +89,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHome, cwVersion, catalog])
 
-  // Favoriete kanalen bovenaan Live TV (snel bij wat je echt kijkt).
-  const liveFavoritesRow: ContentRowData | null = useMemo(() => {
-    if (activeKey !== 'live') return null
-    const items = getFavorites().filter((f) => f.kind === 'live')
-    return items.length ? { id: 'live-favorites', title: t('row.favChannels'), items } : null
+  const isLive = activeKey === 'live'
+
+  // Favoriete live-kanalen (voor de Favorieten-map in de Live TV-browser).
+  const liveFavorites = useMemo(() => {
+    if (!isLive) return []
+    return getFavorites().filter((f) => f.kind === 'live')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeKey, cwVersion, catalog])
+  }, [isLive, cwVersion, catalog])
 
   const rowsToRender = useMemo(() => {
     const base = activeSection?.rows ?? []
-    const extra = [continueRow, favoritesRow, liveFavoritesRow].filter(Boolean) as ContentRowData[]
+    const extra = [continueRow, favoritesRow].filter(Boolean) as ContentRowData[]
     return [...extra, ...base]
-  }, [activeSection, continueRow, favoritesRow, liveFavoritesRow])
+  }, [activeSection, continueRow, favoritesRow])
 
   // Alle unieke items uit de catalogus, voor zoeken.
   const allItems = useMemo(() => {
@@ -324,20 +326,31 @@ export default function App() {
           </div>
         )}
 
-        <div
-          className="relative z-10 flex flex-col pt-6"
-          style={{ gap: 'var(--row-gap)' }}
-        >
-          {rowsToRender.map((row, i) => (
-            <ContentRow
-              key={row.id}
-              row={row}
-              rowIndex={i}
+        {isLive ? (
+          <div className="relative z-10 pt-6">
+            <LiveBrowser
+              categories={activeSection?.rows ?? []}
+              favorites={liveFavorites}
               onOpen={openItem}
               onFavoriteChange={() => setCwVersion((v) => v + 1)}
             />
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div
+            className="relative z-10 flex flex-col pt-6"
+            style={{ gap: 'var(--row-gap)' }}
+          >
+            {rowsToRender.map((row, i) => (
+              <ContentRow
+                key={row.id}
+                row={row}
+                rowIndex={i}
+                onOpen={openItem}
+                onFavoriteChange={() => setCwVersion((v) => v + 1)}
+              />
+            ))}
+          </div>
+        )}
 
         <footer className="edge-x mt-20 border-t border-white/[0.06] py-10 text-center text-xs text-mist-300">
           <p className="font-semibold text-mist-400">Buisz · IPTV-player</p>
