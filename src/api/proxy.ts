@@ -58,9 +58,48 @@ function workerProxyBase(): string {
   }
 }
 
+// ── Rate-limiting van data-calls ──────────────────────────────────────────────
+// Providers throttelen API-calls (429). We houden het aantal gelijktijdige
+// data-verzoeken laag (semafoor) en retryen 429/503 met backoff. Dit geldt alléén
+// voor data (catalogus/EPG); video-streams lopen buiten deze wrapper om.
+const MAX_CONCURRENT = 4
+let active = 0
+const waiters: Array<() => void> = []
+
+async function acquire(): Promise<void> {
+  if (active >= MAX_CONCURRENT) await new Promise<void>((r) => waiters.push(r))
+  active++
+}
+function release(): void {
+  active--
+  waiters.shift()?.()
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+/** Data-fetch via de proxy met concurrency-limiet en 429/503-retry (backoff). */
+async function dataFetch(url: string, signal?: AbortSignal): Promise<Response> {
+  await acquire()
+  try {
+    let res = await fetch(proxied(url), { signal })
+    for (let attempt = 0; (res.status === 429 || res.status === 503) && attempt < 3; attempt++) {
+      const retryAfter = Number(res.headers.get('retry-after'))
+      const delay = retryAfter > 0 ? retryAfter * 1000 : 500 * 2 ** attempt
+      await wait(delay)
+      if (signal?.aborted) break
+      res = await fetch(proxied(url), { signal })
+    }
+    return res
+  } finally {
+    release()
+  }
+}
+
 /** Haal tekst op via de proxy met een nette foutmelding. */
 export async function fetchText(url: string, signal?: AbortSignal): Promise<string> {
-  const res = await fetch(proxied(url), { signal })
+  const res = await dataFetch(url, signal)
   if (!res.ok) {
     throw new Error(`Ophalen mislukt (${res.status}) voor ${shorten(url)}`)
   }
@@ -69,7 +108,7 @@ export async function fetchText(url: string, signal?: AbortSignal): Promise<stri
 
 /** Haal JSON op via de proxy. Xtream geeft soms tekst/HTML bij fouten — vang dat af. */
 export async function fetchJson<T = unknown>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(proxied(url), { signal })
+  const res = await dataFetch(url, signal)
   if (!res.ok) {
     throw new Error(`Server antwoordde ${res.status} voor ${shorten(url)}`)
   }
