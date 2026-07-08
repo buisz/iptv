@@ -103,7 +103,8 @@ function classify(track: M3uTrack): MediaKind {
 }
 
 function badge(name: string): string {
-  const parts = name.replace(/[^a-zA-Z0-9 ]/g, '').trim().split(/\s+/)
+  const cleaned = name.replace(/^[a-z]{2,3}\s*[:|]\s*/i, '')
+  const parts = cleaned.replace(/[^a-zA-Z0-9 ]/g, '').trim().split(/\s+/)
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? parts[0]?.[1] ?? '')).toUpperCase()
 }
 

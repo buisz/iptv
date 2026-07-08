@@ -172,7 +172,9 @@ function rating10(r?: number): number | undefined {
 }
 
 function badge(name: string): string {
-  const letters = name.replace(/[^a-zA-Z0-9 ]/g, '').trim().split(/\s+/)
+  // Strip een land-prefix ("NL: ", "US|") zodat de initialen van de échte naam komen.
+  const cleaned = name.replace(/^[a-z]{2,3}\s*[:|]\s*/i, '')
+  const letters = cleaned.replace(/[^a-zA-Z0-9 ]/g, '').trim().split(/\s+/)
   return (letters[0]?.[0] ?? '') + (letters[1]?.[0] ?? letters[0]?.[1] ?? '')
 }
 

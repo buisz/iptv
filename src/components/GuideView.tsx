@@ -3,6 +3,7 @@ import type { MediaItem } from '../types/content'
 import type { Source } from '../types/source'
 import { isFavorite, toggleFavorite } from '../api/favorites'
 import { useLazyChannelEpg } from '../hooks/useLazyChannelEpg'
+import { useImgFallback } from '../hooks/useImgFallback'
 import { useT } from '../i18n'
 
 /**
@@ -52,11 +53,10 @@ function GuideRow({ item, rowIndex, source, onPlay, onFavoriteChange }: GuideRow
   const t = useT()
   const rowRef = useRef<HTMLDivElement>(null)
   const [fav, setFav] = useState(() => isFavorite(item.id))
-  const [imgOk, setImgOk] = useState(Boolean(item.backdrop || item.poster))
+  const { src: logoSrc, failed: logoFailed, onError: onLogoError } = useImgFallback(item.backdrop || item.poster)
   const epg = useLazyChannelEpg(rowRef, item, source)
 
   const now = Date.now()
-  const logo = item.backdrop || item.poster
 
   // Toon alleen lopende + komende programma's, ontdubbel (zelfde starttijd) en bepaal
   // precies één "Nu" (de meest recente die al begonnen is). Voorkomt meerdere "Nu"-blokken.
@@ -81,8 +81,8 @@ function GuideRow({ item, rowIndex, source, onPlay, onFavoriteChange }: GuideRow
         className="flex w-40 shrink-0 items-center gap-2.5 rounded-lg p-1.5 text-left outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-buisgroen sm:w-48"
       >
         <span className="grid h-11 w-16 shrink-0 place-items-center overflow-hidden rounded-md bg-antraciet-700">
-          {logo && imgOk ? (
-            <img src={logo} alt="" loading="lazy" onError={() => setImgOk(false)} className="h-full w-full object-contain" />
+          {logoSrc && !logoFailed ? (
+            <img src={logoSrc} alt="" loading="lazy" onError={onLogoError} className="h-full w-full object-contain" />
           ) : (
             <span className="text-[10px] font-bold text-mist-400">{item.channelBadge || '•'}</span>
           )}

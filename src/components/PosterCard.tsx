@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { MediaItem } from '../types/content'
 import PlayabilityBadge from './PlayabilityBadge'
 import { isFavorite, toggleFavorite } from '../api/favorites'
+import { useImgFallback } from '../hooks/useImgFallback'
 
 interface PosterCardProps {
   item: MediaItem
@@ -17,9 +18,9 @@ interface PosterCardProps {
 
 export default function PosterCard({ item, row, col, showProgress, onOpen, onFavoriteChange, fill }: PosterCardProps) {
   const [loaded, setLoaded] = useState(false)
-  const [failed, setFailed] = useState(false)
   const [fav, setFav] = useState(() => isFavorite(item.id))
   const isLive = item.kind === 'live'
+  const { src, failed, onError } = useImgFallback(isLive ? item.backdrop : item.poster)
 
   function onStar(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation()
@@ -27,7 +28,6 @@ export default function PosterCard({ item, row, col, showProgress, onOpen, onFav
     setFav(toggleFavorite(item))
     onFavoriteChange?.()
   }
-  const src = isLive ? item.backdrop : item.poster
   const hasImage = Boolean(src) && !failed
 
   return (
@@ -74,7 +74,7 @@ export default function PosterCard({ item, row, col, showProgress, onOpen, onFav
           alt=""
           loading="lazy"
           onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
+          onError={onError}
           className={[
             'h-full w-full object-cover transition-[opacity,transform] duration-500',
             loaded ? 'opacity-100' : 'opacity-0',
