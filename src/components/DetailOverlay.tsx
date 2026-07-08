@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { MediaItem } from '../types/content'
+import type { EpgEntry, MediaItem } from '../types/content'
 import type { PlayRequest } from './Player'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { isFavorite, toggleFavorite } from '../api/favorites'
@@ -193,35 +193,59 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
             </p>
           )}
 
-          {/* EPG nu/straks (live) */}
-          {item.kind === 'live' && (item.epgNow || item.epgNext) && (
-            <div className="space-y-2">
-              {item.epgNow && (
-                <div className="flex items-start gap-3 rounded-xl border border-buisgroen/20 bg-buisgroen/[0.06] p-3">
-                  <span className="mt-0.5 shrink-0 rounded bg-buisgroen px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-antraciet-900">
-                    {t('detail.now')}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-mist">{item.epgNow.title}</p>
-                    <p className="text-xs text-mist-400">
-                      {clock(item.epgNow.start)} – {clock(item.epgNow.stop)}
-                    </p>
-                  </div>
+          {/* EPG: nu + verticale tijdlijn van wat er straks komt (live) */}
+          {item.kind === 'live' &&
+            (() => {
+              const now = Date.now()
+              const sched =
+                item.epgSchedule && item.epgSchedule.length
+                  ? item.epgSchedule
+                  : ([item.epgNow, item.epgNext].filter(Boolean) as EpgEntry[])
+              if (!sched.length) return null
+              const current =
+                sched
+                  .filter((p) => p.start <= now && p.stop > now)
+                  .sort((a, b) => a.start - b.start)
+                  .pop() ?? item.epgNow
+              const upcoming = sched
+                .filter((p) => p.start > now)
+                .sort((a, b) => a.start - b.start)
+                .filter((p, i, a) => i === 0 || p.title !== a[i - 1].title)
+              return (
+                <div className="space-y-2">
+                  {current && (
+                    <div className="flex items-start gap-3 rounded-xl border border-buisgroen/20 bg-buisgroen/[0.06] p-3">
+                      <span className="mt-0.5 shrink-0 rounded bg-buisgroen px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-antraciet-900">
+                        {t('detail.now')}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-mist">{current.title}</p>
+                        <p className="text-xs text-mist-400">
+                          {clock(current.start)} – {clock(current.stop)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {upcoming.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-wider text-mist-300">
+                        {t('detail.next')}
+                      </p>
+                      <ul className="max-h-64 divide-y divide-white/[0.06] overflow-y-auto rounded-xl border border-white/[0.06]">
+                        {upcoming.map((p, i) => (
+                          <li key={i} className="flex items-center gap-3 px-3 py-2">
+                            <span className="shrink-0 text-xs font-semibold tabular-nums text-mist-400">
+                              {clock(p.start)}
+                            </span>
+                            <span className="min-w-0 truncate text-sm text-mist">{p.title}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
-              {item.epgNext && (
-                <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] p-3">
-                  <span className="mt-0.5 shrink-0 rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-mist-400">
-                    {t('detail.next')}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-mist">{item.epgNext.title}</p>
-                    <p className="text-xs text-mist-400">{clock(item.epgNext.start)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+              )
+            })()}
 
           {/* Genres */}
           {item.genres.length > 0 && (

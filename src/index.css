@@ -64,6 +64,27 @@
     padding-right: var(--edge);
   }
 
+  /* Horizontale strip met een dun, zichtbaar schuifje (gids-tijdlijn). */
+  .h-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  }
+  .h-scroll::-webkit-scrollbar {
+    height: 8px;
+  }
+  .h-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .h-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+  }
+  .h-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+
   .text-balance {
     text-wrap: balance;
   }

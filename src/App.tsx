@@ -217,8 +217,14 @@ export default function App() {
       try {
         const list = await loadShortEpg(source, item.ref.id)
         const { now, next } = nowNext(list, Date.now())
-        if (now || next) {
-          enriched = { ...enriched, epgNow: now, epgNext: next, tagline: now ? `Nu: ${now.title}` : enriched.tagline }
+        if (list.length || now || next) {
+          enriched = {
+            ...enriched,
+            epgNow: now,
+            epgNext: next,
+            epgSchedule: list,
+            tagline: now ? `Nu: ${now.title}` : enriched.tagline,
+          }
         }
       } catch {
         /* short-epg optioneel */

@@ -63,6 +63,8 @@ export interface MediaItem {
   epgNow?: EpgEntry
   /** Eerstvolgende programma. */
   epgNext?: EpgEntry
+  /** Volledige (lopende + komende) programmering voor de tijdlijn in het detail. */
+  epgSchedule?: EpgEntry[]
 
   // ── Afspeelbaarheid: codec/resolutie-hint × device-capaciteit ──
   /**

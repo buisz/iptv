@@ -104,8 +104,20 @@ function GuideRow({ item, rowIndex, source, onPlay, onFavoriteChange }: GuideRow
         </span>
       </button>
 
-      {/* Programmastrip */}
-      <div className="row-scroll flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+      {/* Programmastrip: muiswiel → horizontaal + zichtbaar schuifje (h-scroll). */}
+      <div
+        className="h-scroll flex min-w-0 flex-1 items-center gap-2 pb-1.5"
+        onWheel={(e) => {
+          const el = e.currentTarget
+          if (el.scrollWidth <= el.clientWidth + 1) return
+          const dy = e.deltaY
+          const atStart = el.scrollLeft <= 0
+          const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+          if ((dy < 0 && atStart) || (dy > 0 && atEnd)) return // aan de randen: pagina scrollt
+          el.scrollLeft += dy
+          e.preventDefault()
+        }}
+      >
         {epg === null ? (
           <div className="h-12 w-full animate-pulse-soft rounded-lg bg-white/[0.04]" />
         ) : list.length === 0 ? (
