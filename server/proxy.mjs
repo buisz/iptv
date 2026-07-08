@@ -38,7 +38,7 @@ const MIME = {
   '.woff2': 'font/woff2',
 }
 
-async function handleProxy(req, res, target) {
+async function handleProxy(req, res, target, isStream = false) {
   if (!target) {
     res.writeHead(400)
     res.end('ontbrekende ?url parameter')
@@ -63,7 +63,8 @@ async function handleProxy(req, res, target) {
     }
 
     // Foutpagina i.p.v. video (HTML/JSON): eerlijke 502 met snippet.
-    if (looksLikeErrorPage(contentType)) {
+    // Alleen voor stream-verzoeken — API-calls geven legitiem JSON terug.
+    if (isStream && looksLikeErrorPage(contentType)) {
       const snippet = (await upstream.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
       res.statusCode = 502
       res.setHeader('content-type', 'text/plain; charset=utf-8')
@@ -120,7 +121,7 @@ async function serveStatic(res, urlPath) {
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
   if (url.pathname === '/__proxy') {
-    await handleProxy(req, res, url.searchParams.get('url'))
+    await handleProxy(req, res, url.searchParams.get('url'), url.searchParams.get('stream') === '1')
     return
   }
   await serveStatic(res, url.pathname)

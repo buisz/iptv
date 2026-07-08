@@ -7,18 +7,25 @@
  * - Op de doel-box met native netwerklaag is er geen browser-CORS en kan
  *   `VITE_PROXY_BASE` leeg blijven; dan gaat het verkeer rechtstreeks.
  */
-export function proxied(url: string): string {
+/**
+ * @param opts.stream  Zet `stream=1` in de proxy-URL. Alleen dán mag de proxy een
+ *   niet-video-antwoord (HTML/JSON-foutpagina) als 502 afkeuren. Voor gewone data-
+ *   calls (Xtream `player_api.php` geeft legitiem JSON!) blijft dit uit, anders zou
+ *   de proxy geldige API-antwoorden ten onrechte als foutpagina weigeren.
+ */
+export function proxied(url: string, opts?: { stream?: boolean }): string {
+  const query = `url=${encodeURIComponent(url)}${opts?.stream ? '&stream=1' : ''}`
   if (import.meta.env.DEV) {
-    return absolute(`/__proxy?url=${encodeURIComponent(url)}`)
+    return absolute(`/__proxy?${query}`)
   }
   const base = import.meta.env.VITE_PROXY_BASE
   if (base) {
-    return absolute(`${base}?url=${encodeURIComponent(url)}`)
+    return absolute(`${base}?${query}`)
   }
   // Anders: de ingestelde koppel-Worker biedt ook /proxy aan.
   const worker = workerProxyBase()
   if (worker) {
-    return `${worker}/proxy?url=${encodeURIComponent(url)}`
+    return `${worker}/proxy?${query}`
   }
   return url
 }

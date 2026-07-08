@@ -96,6 +96,7 @@ export default {
     // ── Stream-/CORS-proxy ──────────────────────────────────────────────
     if (pathname === '/proxy') {
       const target = url.searchParams.get('url')
+      const isStream = url.searchParams.get('stream') === '1'
       if (!target) return new Response('missing url', { status: 400, headers: CORS })
       const headers = new Headers({ 'User-Agent': STREAM_UA })
       const range = request.headers.get('range')
@@ -114,7 +115,8 @@ export default {
       }
 
       // Foutpagina i.p.v. video (HTML/JSON): eerlijke 502 met snippet.
-      if (looksLikeErrorPage(contentType)) {
+      // Alleen voor stream-verzoeken — API-calls geven legitiem JSON terug.
+      if (isStream && looksLikeErrorPage(contentType)) {
         const snippet = (await upstream.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
         const h = new Headers(CORS)
         h.set('content-type', 'text/plain; charset=utf-8')

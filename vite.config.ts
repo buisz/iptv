@@ -20,6 +20,7 @@ function devProxy(): Plugin {
         try {
           const requestUrl = new URL(req.url ?? '', 'http://localhost')
           const target = requestUrl.searchParams.get('url')
+          const isStream = requestUrl.searchParams.get('stream') === '1'
           if (!target) {
             res.statusCode = 400
             res.end('ontbrekende ?url parameter')
@@ -45,7 +46,8 @@ function devProxy(): Plugin {
 
           // Foutpagina i.p.v. video (HTML/JSON): geef een eerlijke 502 met snippet,
           // zodat de speler niet "codec-fout" toont bij een verlopen account e.d.
-          if (looksLikeErrorPage(contentType)) {
+          // Alleen voor stream-verzoeken — API-calls geven legitiem JSON terug.
+          if (isStream && looksLikeErrorPage(contentType)) {
             const snippet = (await upstream.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
             res.statusCode = 502
             res.setHeader('content-type', 'text/plain; charset=utf-8')

@@ -221,7 +221,7 @@ export default function Player({ request, onClose }: PlayerProps) {
             }
             class ProxyLoader extends Base {
               load(context: { url: string }, config: unknown, callbacks: unknown) {
-                if (context?.url) context.url = proxied(context.url)
+                if (context?.url) context.url = proxied(context.url, { stream: true })
                 super.load(context, config, callbacks)
               }
             }
@@ -252,7 +252,7 @@ export default function Player({ request, onClose }: PlayerProps) {
             const player = mpegts.createPlayer(
               // mpegts.js haalt de stream via fetch op → CORS. Via de proxy
               // (dev: /__proxy, web-deploy: VITE_PROXY_BASE) omzeilen we dat.
-              { type: 'mpegts', isLive: request!.kind === 'live', url: proxied(url!) },
+              { type: 'mpegts', isLive: request!.kind === 'live', url: proxied(url!, { stream: true }) },
               { enableWorker: true, liveBufferLatencyChasing: request!.kind === 'live' },
             )
             player.attachMediaElement(video!)
