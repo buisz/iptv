@@ -7,9 +7,10 @@ interface ContentRowProps {
   /** Globale rij-index voor spatial navigation. */
   rowIndex: number
   onOpen: (item: MediaItem) => void
+  onFavoriteChange?: () => void
 }
 
-export default function ContentRow({ row, rowIndex, onOpen }: ContentRowProps) {
+export default function ContentRow({ row, rowIndex, onOpen, onFavoriteChange }: ContentRowProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   function nudge(dir: 1 | -1) {
@@ -51,6 +52,7 @@ export default function ContentRow({ row, rowIndex, onOpen }: ContentRowProps) {
               col={col}
               showProgress={row.showProgress}
               onOpen={onOpen}
+              onFavoriteChange={onFavoriteChange}
             />
           ))}
         </div>

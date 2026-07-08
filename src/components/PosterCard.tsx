@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { MediaItem } from '../types/content'
 import PlayabilityBadge from './PlayabilityBadge'
+import { isFavorite, toggleFavorite } from '../api/favorites'
 
 interface PosterCardProps {
   item: MediaItem
@@ -8,12 +9,22 @@ interface PosterCardProps {
   col: number
   showProgress?: boolean
   onOpen: (item: MediaItem) => void
+  /** Aangeroepen na (ont)favorieten, zodat de bovenliggende favorieten-rij ververst. */
+  onFavoriteChange?: () => void
 }
 
-export default function PosterCard({ item, row, col, showProgress, onOpen }: PosterCardProps) {
+export default function PosterCard({ item, row, col, showProgress, onOpen, onFavoriteChange }: PosterCardProps) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [fav, setFav] = useState(() => isFavorite(item.id))
   const isLive = item.kind === 'live'
+
+  function onStar(e: React.MouseEvent | React.KeyboardEvent) {
+    e.stopPropagation()
+    e.preventDefault()
+    setFav(toggleFavorite(item))
+    onFavoriteChange?.()
+  }
   const src = isLive ? item.backdrop : item.poster
   const hasImage = Boolean(src) && !failed
 
@@ -76,11 +87,35 @@ export default function PosterCard({ item, row, col, showProgress, onOpen }: Pos
         )}
         <PlayabilityBadge item={item} />
       </div>
-      {isLive && item.channelBadge && (
-        <span className="absolute right-2.5 top-2.5 grid h-8 min-w-8 place-items-center rounded-md bg-buisgroen/90 px-1.5 text-xs font-extrabold text-antraciet-900">
-          {item.channelBadge}
+      {/* Rechtsboven gestapeld: favoriet-ster + (live) zenderafkorting. */}
+      <span className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1.5">
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={fav ? 'Uit favorieten' : 'Aan favorieten toevoegen'}
+          aria-pressed={fav}
+          onClick={onStar}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') onStar(e)
+          }}
+          className={[
+            'grid h-8 w-8 cursor-pointer place-items-center rounded-full backdrop-blur-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-buisgroen',
+            fav ? 'bg-buisgroen text-antraciet-900' : 'bg-antraciet-900/70 text-mist hover:text-buisgroen',
+          ].join(' ')}
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill={fav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+            <path
+              d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"
+              strokeLinejoin="round"
+            />
+          </svg>
         </span>
-      )}
+        {isLive && item.channelBadge && (
+          <span className="grid h-8 min-w-8 place-items-center rounded-md bg-buisgroen/90 px-1.5 text-xs font-extrabold text-antraciet-900">
+            {item.channelBadge}
+          </span>
+        )}
+      </span>
 
       {/* Titel / context onderaan */}
       <div className="absolute inset-x-0 bottom-0 p-2.5 text-left">

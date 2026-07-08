@@ -87,11 +87,19 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHome, cwVersion, catalog])
 
+  // Favoriete kanalen bovenaan Live TV (snel bij wat je echt kijkt).
+  const liveFavoritesRow: ContentRowData | null = useMemo(() => {
+    if (activeKey !== 'live') return null
+    const items = getFavorites().filter((f) => f.kind === 'live')
+    return items.length ? { id: 'live-favorites', title: t('row.favChannels'), items } : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey, cwVersion, catalog])
+
   const rowsToRender = useMemo(() => {
     const base = activeSection?.rows ?? []
-    const extra = [continueRow, favoritesRow].filter(Boolean) as ContentRowData[]
+    const extra = [continueRow, favoritesRow, liveFavoritesRow].filter(Boolean) as ContentRowData[]
     return [...extra, ...base]
-  }, [activeSection, continueRow, favoritesRow])
+  }, [activeSection, continueRow, favoritesRow, liveFavoritesRow])
 
   // Alle unieke items uit de catalogus, voor zoeken.
   const allItems = useMemo(() => {
@@ -306,7 +314,13 @@ export default function App() {
           style={{ gap: 'var(--row-gap)' }}
         >
           {rowsToRender.map((row, i) => (
-            <ContentRow key={row.id} row={row} rowIndex={i} onOpen={openItem} />
+            <ContentRow
+              key={row.id}
+              row={row}
+              rowIndex={i}
+              onOpen={openItem}
+              onFavoriteChange={() => setCwVersion((v) => v + 1)}
+            />
           ))}
         </div>
 
