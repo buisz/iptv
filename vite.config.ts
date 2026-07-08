@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { Readable } from 'node:stream'
 import { BROWSER_UA, isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './server/m3u8.mjs'
+import { cacheGet, cacheSet, hostOf, ttlFor, withHostLimit } from './server/cache.mjs'
 
 /**
  * Dev-proxy voor CORS.
@@ -26,10 +27,27 @@ function devProxy(): Plugin {
             res.end('ontbrekende ?url parameter')
             return
           }
-          // Range doorgeven (zoeken in VOD) en de stream live doorsluizen.
+
+          // Cache-hit voor data/EPG/logo's (nooit voor streams): serveer zonder de
+          // provider opnieuw te bevragen — instant reload, geen 429's.
+          if (!isStream) {
+            const hit = cacheGet(target)
+            if (hit) {
+              if (hit.contentType) res.setHeader('content-type', hit.contentType)
+              res.setHeader('access-control-allow-origin', '*')
+              res.setHeader('x-buisz-cache', 'HIT')
+              res.end(hit.body)
+              return
+            }
+          }
+
+          // Range doorgeven (zoeken in VOD) en de stream live doorsluizen. Upstream-
+          // fetch achter een per-host limiet (backstop tegen bursts).
           const headers: Record<string, string> = { 'User-Agent': isStream ? STREAM_UA : BROWSER_UA }
           if (req.headers.range) headers['range'] = req.headers.range
-          const upstream = await fetch(target, { headers, redirect: 'follow' })
+          const upstream = await withHostLimit(hostOf(target), () =>
+            fetch(target, { headers, redirect: 'follow' }),
+          )
 
           res.statusCode = upstream.status
           const contentType = upstream.headers.get('content-type')
@@ -58,6 +76,17 @@ function devProxy(): Plugin {
             res.setHeader('content-type', 'text/plain; charset=utf-8')
             res.setHeader('access-control-allow-origin', '*')
             res.end(`Upstream antwoordde HTTP ${upstream.status} (${contentType || 'onbekend'}): ${snippet || '(leeg)'}`)
+            return
+          }
+
+          // Data/EPG/logo's (niet-stream): bufferen, cachen en serveren. Klein/eindig.
+          if (!isStream) {
+            const buf = Buffer.from(await upstream.arrayBuffer())
+            if (upstream.ok) cacheSet(target, buf, contentType, ttlFor(contentType))
+            if (contentType) res.setHeader('content-type', contentType)
+            res.setHeader('access-control-allow-origin', '*')
+            res.setHeader('x-buisz-cache', 'MISS')
+            res.end(buf)
             return
           }
 

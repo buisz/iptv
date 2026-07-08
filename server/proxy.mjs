@@ -20,6 +20,7 @@ import { join, normalize, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
 import { BROWSER_UA, isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './m3u8.mjs'
+import { cacheGet, cacheSet, hostOf, ttlFor, withHostLimit } from './cache.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'dist')
@@ -45,9 +46,21 @@ async function handleProxy(req, res, target, isStream = false) {
     return
   }
   try {
+    // Cache-hit voor data/EPG/logo's (nooit voor streams).
+    if (!isStream) {
+      const hit = cacheGet(target)
+      if (hit) {
+        if (hit.contentType) res.setHeader('content-type', hit.contentType)
+        res.setHeader('access-control-allow-origin', '*')
+        res.setHeader('x-buisz-cache', 'HIT')
+        res.end(hit.body)
+        return
+      }
+    }
+
     const headers = { 'User-Agent': isStream ? STREAM_UA : BROWSER_UA }
     if (req.headers.range) headers['range'] = req.headers.range
-    const upstream = await fetch(target, { headers, redirect: 'follow' })
+    const upstream = await withHostLimit(hostOf(target), () => fetch(target, { headers, redirect: 'follow' }))
 
     res.statusCode = upstream.status
     const contentType = upstream.headers.get('content-type')
@@ -75,6 +88,17 @@ async function handleProxy(req, res, target, isStream = false) {
       res.setHeader('content-type', 'text/plain; charset=utf-8')
       res.setHeader('access-control-allow-origin', '*')
       res.end(`Upstream antwoordde HTTP ${upstream.status} (${contentType || 'onbekend'}): ${snippet || '(leeg)'}`)
+      return
+    }
+
+    // Data/EPG/logo's (niet-stream): bufferen, cachen en serveren.
+    if (!isStream) {
+      const buf = Buffer.from(await upstream.arrayBuffer())
+      if (upstream.ok) cacheSet(target, buf, contentType, ttlFor(contentType))
+      if (contentType) res.setHeader('content-type', contentType)
+      res.setHeader('access-control-allow-origin', '*')
+      res.setHeader('x-buisz-cache', 'MISS')
+      res.end(buf)
       return
     }
 

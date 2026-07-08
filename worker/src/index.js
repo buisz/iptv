@@ -51,6 +51,14 @@ function looksLikeErrorPage(contentType) {
   return ct.includes('text/html') || ct.includes('application/json') || ct.includes('application/xml')
 }
 
+/** TTL (seconden) voor de Cloudflare Cache API op basis van content-type. */
+function ttlSeconds(contentType) {
+  const ct = (contentType || '').toLowerCase()
+  if (ct.startsWith('image/')) return 6 * 60 * 60 // 6 uur (logo's)
+  if (ct.includes('xml')) return 15 * 60 // 15 min (EPG/XMLTV)
+  return 5 * 60 // 5 min (catalogus-API)
+}
+
 /** Is dit waarschijnlijk een m3u8-playlist? (content-type of extensie). */
 function isM3u8(contentType, targetUrl) {
   const ct = (contentType || '').toLowerCase()
@@ -90,7 +98,7 @@ function rewriteM3u8(text, baseUrl) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
     const { pathname } = url
 
@@ -101,6 +109,15 @@ export default {
       const target = url.searchParams.get('url')
       const isStream = url.searchParams.get('stream') === '1'
       if (!target) return new Response('missing url', { status: 400, headers: CORS })
+
+      // Cache-hit voor data/EPG/logo's (nooit voor streams) via de Cloudflare Cache API.
+      const cache = typeof caches !== 'undefined' ? caches.default : null
+      const cacheKey = new Request(url.toString(), { method: 'GET' })
+      if (cache && !isStream && request.method === 'GET') {
+        const cached = await cache.match(cacheKey)
+        if (cached) return cached
+      }
+
       const headers = new Headers({ 'User-Agent': isStream ? STREAM_UA : BROWSER_UA })
       const range = request.headers.get('range')
       if (range) headers.set('range', range)
@@ -131,6 +148,19 @@ export default {
         const v = upstream.headers.get(h)
         if (v) respHeaders.set(h, v)
       }
+
+      // Data/EPG/logo's: buffer + cache (Cache API respecteert onze cache-control).
+      // Streams: nooit cachen, direct doorstromen.
+      if (!isStream) {
+        respHeaders.set('cache-control', `public, max-age=${ttlSeconds(contentType)}`)
+        const buf = await upstream.arrayBuffer()
+        const resp = new Response(buf, { status: upstream.status, headers: respHeaders })
+        if (cache && upstream.ok && request.method === 'GET') {
+          ctx.waitUntil(cache.put(cacheKey, resp.clone()))
+        }
+        return resp
+      }
+
       respHeaders.set('cache-control', 'no-store')
       return new Response(upstream.body, { status: upstream.status, headers: respHeaders })
     }
