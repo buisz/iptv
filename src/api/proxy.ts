@@ -9,11 +9,11 @@
  */
 export function proxied(url: string): string {
   if (import.meta.env.DEV) {
-    return `/__proxy?url=${encodeURIComponent(url)}`
+    return absolute(`/__proxy?url=${encodeURIComponent(url)}`)
   }
   const base = import.meta.env.VITE_PROXY_BASE
   if (base) {
-    return `${base}?url=${encodeURIComponent(url)}`
+    return absolute(`${base}?url=${encodeURIComponent(url)}`)
   }
   // Anders: de ingestelde koppel-Worker biedt ook /proxy aan.
   const worker = workerProxyBase()
@@ -21,6 +21,23 @@ export function proxied(url: string): string {
     return `${worker}/proxy?url=${encodeURIComponent(url)}`
   }
   return url
+}
+
+/**
+ * Maak een pad absoluut t.o.v. de app-origin.
+ *
+ * Cruciaal voor mpegts.js: dat draait zijn fetch ín een Web Worker (blob:-URL).
+ * Een root-relatieve `/__proxy?...` heeft daar geen basis → "Failed to parse URL".
+ * Met een volledige `http://host/__proxy?...` werkt het overal (main thread én worker).
+ */
+function absolute(pathOrUrl: string): string {
+  const origin = globalThis.location?.origin
+  if (!origin) return pathOrUrl
+  try {
+    return new URL(pathOrUrl, origin).toString()
+  } catch {
+    return pathOrUrl
+  }
 }
 
 /** Worker-basis uit env of de in Instellingen bewaarde URL (alleen in productie nuttig). */
