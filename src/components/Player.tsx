@@ -5,6 +5,7 @@ import { resumePosition, saveProgress } from '../api/progress'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { proxied } from '../api/proxy'
 import { useT } from '../i18n'
+import HelpOverlay from './HelpOverlay'
 import {
   nativePlay,
   nativeProgress,
@@ -85,6 +86,7 @@ export default function Player({ request, onClose }: PlayerProps) {
   // Technische detailregel (zoals de browserconsole), achter een "Toon details"-knop.
   const [detail, setDetail] = useState('')
   const [showDetail, setShowDetail] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   // Chromecast (CAF) beschikbaar in deze browser? AirPlay (WebKit) beschikbaar?
   const [castAvailable, setCastAvailable] = useState(false)
   const [airplayAvailable, setAirplayAvailable] = useState(false)
@@ -551,23 +553,40 @@ export default function Player({ request, onClose }: PlayerProps) {
                   )}
                 </>
               )}
-              <button
-                onClick={onClose}
-                className="mt-5 rounded-full bg-buisgroen px-6 py-2.5 text-sm font-bold text-antraciet-900 outline-none focus-visible:ring-2 focus-visible:ring-buisgroen"
-              >
-                {t('common.close')}
-              </button>
+              <div className="mt-5 flex items-center justify-center gap-2.5">
+                {status === 'error' && (
+                  <button
+                    onClick={() => setHelpOpen(true)}
+                    className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-mist outline-none transition-colors hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-buisgroen"
+                  >
+                    {t('player.help')}
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="rounded-full bg-buisgroen px-6 py-2.5 text-sm font-bold text-antraciet-900 outline-none focus-visible:ring-2 focus-visible:ring-buisgroen"
+                >
+                  {t('common.close')}
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      <HelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }
 
-/** Korte basis-melding bij een netwerklaag-fout (time-out/geweigerd/onze proxy-502). */
+/**
+ * Generieke basis-melding bij een netwerklaag-fout. Bewust niet te specifiek (de
+ * exacte oorzaak weten we vaak niet); details staan achter "Toon technische details"
+ * en verdere hulp achter "Hulp & tips". Bij een sterk vermoeden van een geo-blokkade
+ * plakt fail() de specifiekere geo-hint eronder.
+ */
 const networkBase =
-  'De streaming-server reageerde niet — time-out of geweigerd vanaf dit netwerk.'
+  'De stream kan niet worden bereikt. Dit ligt meestal aan je netwerk, je provider of een regioblokkade — niet aan de app zelf.'
 
 /** Categorie van een HTTP-status voor de geo-/netwerkdiagnose. */
 function httpCategory(status: number): FailCategory {
