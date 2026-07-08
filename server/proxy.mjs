@@ -19,7 +19,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { join, normalize, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
-import { isM3u8, rewriteM3u8 } from './m3u8.mjs'
+import { isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './m3u8.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'dist')
@@ -45,7 +45,7 @@ async function handleProxy(req, res, target) {
     return
   }
   try {
-    const headers = { 'User-Agent': 'BuiszIPTV/0.1 (proxy)' }
+    const headers = { 'User-Agent': STREAM_UA }
     if (req.headers.range) headers['range'] = req.headers.range
     const upstream = await fetch(target, { headers, redirect: 'follow' })
 
@@ -59,6 +59,16 @@ async function handleProxy(req, res, target) {
       res.setHeader('access-control-allow-origin', '*')
       res.setHeader('cache-control', 'no-store')
       res.end(text)
+      return
+    }
+
+    // Foutpagina i.p.v. video (HTML/JSON): eerlijke 502 met snippet.
+    if (looksLikeErrorPage(contentType)) {
+      const snippet = (await upstream.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
+      res.statusCode = 502
+      res.setHeader('content-type', 'text/plain; charset=utf-8')
+      res.setHeader('access-control-allow-origin', '*')
+      res.end(`Upstream gaf een foutpagina i.p.v. video: ${snippet || '(leeg)'}`)
       return
     }
 

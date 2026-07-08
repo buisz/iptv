@@ -39,6 +39,15 @@ function genCode(len = 6) {
   return out
 }
 
+/** User-Agent voor upstream-verzoeken (VLC — veel Xtream-panels eisen een speler-UA). */
+const STREAM_UA = 'VLC/3.0.20 LibVLC/3.0.20'
+
+/** Ziet dit antwoord eruit als een foutpagina i.p.v. video? (HTML/JSON/XML). */
+function looksLikeErrorPage(contentType) {
+  const ct = (contentType || '').toLowerCase()
+  return ct.includes('text/html') || ct.includes('application/json') || ct.includes('application/xml')
+}
+
 /** Is dit waarschijnlijk een m3u8-playlist? (content-type of extensie). */
 function isM3u8(contentType, targetUrl) {
   const ct = (contentType || '').toLowerCase()
@@ -88,7 +97,7 @@ export default {
     if (pathname === '/proxy') {
       const target = url.searchParams.get('url')
       if (!target) return new Response('missing url', { status: 400, headers: CORS })
-      const headers = new Headers({ 'User-Agent': 'BuiszIPTV/0.1 (worker-proxy)' })
+      const headers = new Headers({ 'User-Agent': STREAM_UA })
       const range = request.headers.get('range')
       if (range) headers.set('range', range)
       const upstream = await fetch(target, { headers, redirect: 'follow' })
@@ -102,6 +111,14 @@ export default {
         h.set('content-type', contentType || 'application/vnd.apple.mpegurl')
         h.set('cache-control', 'no-store')
         return new Response(text, { status: upstream.status, headers: h })
+      }
+
+      // Foutpagina i.p.v. video (HTML/JSON): eerlijke 502 met snippet.
+      if (looksLikeErrorPage(contentType)) {
+        const snippet = (await upstream.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
+        const h = new Headers(CORS)
+        h.set('content-type', 'text/plain; charset=utf-8')
+        return new Response(`Upstream gaf een foutpagina i.p.v. video: ${snippet || '(leeg)'}`, { status: 502, headers: h })
       }
 
       const respHeaders = new Headers(CORS)

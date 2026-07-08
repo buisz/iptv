@@ -2,7 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { Readable } from 'node:stream'
-import { isM3u8, rewriteM3u8 } from './server/m3u8.mjs'
+import { isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './server/m3u8.mjs'
 
 /**
  * Dev-proxy voor CORS.
@@ -26,7 +26,7 @@ function devProxy(): Plugin {
             return
           }
           // Range doorgeven (zoeken in VOD) en de stream live doorsluizen.
-          const headers: Record<string, string> = { 'User-Agent': 'BuiszIPTV/0.1 (dev-proxy)' }
+          const headers: Record<string, string> = { 'User-Agent': STREAM_UA }
           if (req.headers.range) headers['range'] = req.headers.range
           const upstream = await fetch(target, { headers, redirect: 'follow' })
 
@@ -40,6 +40,17 @@ function devProxy(): Plugin {
             res.setHeader('access-control-allow-origin', '*')
             res.setHeader('cache-control', 'no-store')
             res.end(text)
+            return
+          }
+
+          // Foutpagina i.p.v. video (HTML/JSON): geef een eerlijke 502 met snippet,
+          // zodat de speler niet "codec-fout" toont bij een verlopen account e.d.
+          if (looksLikeErrorPage(contentType)) {
+            const snippet = (await upstream.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
+            res.statusCode = 502
+            res.setHeader('content-type', 'text/plain; charset=utf-8')
+            res.setHeader('access-control-allow-origin', '*')
+            res.end(`Upstream gaf een foutpagina i.p.v. video: ${snippet || '(leeg)'}`)
             return
           }
 

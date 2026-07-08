@@ -11,6 +11,23 @@
  * de client bepaalt hoe hij proxyt.
  */
 
+/**
+ * User-Agent voor upstream-verzoeken. Veel Xtream-panels serveren streams alléén
+ * aan een speler-UA (VLC) en geven onbekende UA's een foutpagina → daarom VLC.
+ */
+export const STREAM_UA = 'VLC/3.0.20 LibVLC/3.0.20'
+
+/**
+ * Ziet dit antwoord eruit als een foutpagina i.p.v. video? (HTML/JSON/XML op een
+ * stream-verzoek betekent vrijwel altijd "account verlopen / max verbindingen /
+ * zender offline"). Zo kunnen we een eerlijke fout tonen i.p.v. rommel naar de
+ * demuxer te pipen (wat als "codec-fout" wordt misgelezen).
+ */
+export function looksLikeErrorPage(contentType) {
+  const ct = (contentType || '').toLowerCase()
+  return ct.includes('text/html') || ct.includes('application/json') || ct.includes('application/xml')
+}
+
 /** Is dit waarschijnlijk een m3u8-playlist? (content-type of extensie). */
 export function isM3u8(contentType, targetUrl) {
   const ct = (contentType || '').toLowerCase()
