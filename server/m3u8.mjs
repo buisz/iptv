@@ -13,9 +13,12 @@
 
 /**
  * User-Agent voor upstream-verzoeken. Veel Xtream-panels serveren streams alléén
- * aan een speler-UA (VLC) en geven onbekende UA's een foutpagina → daarom VLC.
+ * aan een speler-UA (VLC) → daarom VLC voor streams. Voor gewone data/logo's is een
+ * normale browser-UA beter: kieskeurige hosts (bijv. Wikimedia) weigeren een VLC-UA.
  */
 export const STREAM_UA = 'VLC/3.0.20 LibVLC/3.0.20'
+export const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 /**
  * Ziet dit antwoord eruit als een foutpagina i.p.v. video? (HTML/JSON/XML op een

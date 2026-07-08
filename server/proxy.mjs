@@ -19,7 +19,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { join, normalize, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
-import { isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './m3u8.mjs'
+import { BROWSER_UA, isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './m3u8.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'dist')
@@ -45,7 +45,7 @@ async function handleProxy(req, res, target, isStream = false) {
     return
   }
   try {
-    const headers = { 'User-Agent': STREAM_UA }
+    const headers = { 'User-Agent': isStream ? STREAM_UA : BROWSER_UA }
     if (req.headers.range) headers['range'] = req.headers.range
     const upstream = await fetch(target, { headers, redirect: 'follow' })
 

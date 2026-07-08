@@ -2,7 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { Readable } from 'node:stream'
-import { isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './server/m3u8.mjs'
+import { BROWSER_UA, isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './server/m3u8.mjs'
 
 /**
  * Dev-proxy voor CORS.
@@ -27,7 +27,7 @@ function devProxy(): Plugin {
             return
           }
           // Range doorgeven (zoeken in VOD) en de stream live doorsluizen.
-          const headers: Record<string, string> = { 'User-Agent': STREAM_UA }
+          const headers: Record<string, string> = { 'User-Agent': isStream ? STREAM_UA : BROWSER_UA }
           if (req.headers.range) headers['range'] = req.headers.range
           const upstream = await fetch(target, { headers, redirect: 'follow' })
 

@@ -39,8 +39,11 @@ function genCode(len = 6) {
   return out
 }
 
-/** User-Agent voor upstream-verzoeken (VLC — veel Xtream-panels eisen een speler-UA). */
+/** User-Agent voor upstream. VLC voor streams (panels eisen een speler-UA); een
+ *  browser-UA voor data/logo's (kieskeurige hosts als Wikimedia weigeren VLC). */
 const STREAM_UA = 'VLC/3.0.20 LibVLC/3.0.20'
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 /** Ziet dit antwoord eruit als een foutpagina i.p.v. video? (HTML/JSON/XML). */
 function looksLikeErrorPage(contentType) {
@@ -98,7 +101,7 @@ export default {
       const target = url.searchParams.get('url')
       const isStream = url.searchParams.get('stream') === '1'
       if (!target) return new Response('missing url', { status: 400, headers: CORS })
-      const headers = new Headers({ 'User-Agent': STREAM_UA })
+      const headers = new Headers({ 'User-Agent': isStream ? STREAM_UA : BROWSER_UA })
       const range = request.headers.get('range')
       if (range) headers.set('range', range)
       const upstream = await fetch(target, { headers, redirect: 'follow' })
