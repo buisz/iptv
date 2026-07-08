@@ -87,6 +87,8 @@ export default function Player({ request, onClose }: PlayerProps) {
   const [detail, setDetail] = useState('')
   const [showDetail, setShowDetail] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  // Niet-blokkerende melding als er geen afspeelbaar geluidsspoor is (bijv. AC-3).
+  const [audioNote, setAudioNote] = useState('')
   // Chromecast (CAF) beschikbaar in deze browser? AirPlay (WebKit) beschikbaar?
   const [castAvailable, setCastAvailable] = useState(false)
   const [airplayAvailable, setAirplayAvailable] = useState(false)
@@ -266,6 +268,7 @@ export default function Player({ request, onClose }: PlayerProps) {
     setMessage('')
     setDetail('')
     setShowDetail(false)
+    setAudioNote('')
 
     const streamId = request.id
     // Toon de fout + registreer de categorie (voor de geo-/netwerkdiagnose). Bij een
@@ -333,6 +336,15 @@ export default function Player({ request, onClose }: PlayerProps) {
               mpegtsConfig(profile),
             )
             player.attachMediaElement(video!)
+            // Geen afspeelbaar geluidsspoor? (bijv. AC-3, dat mpegts.js niet demuxet
+            // → hasAudio=false → de browser grijst de speaker uit). Toon een eerlijke,
+            // niet-blokkerende melding i.p.v. de gebruiker te laten raden.
+            player.on(mpegts.Events.MEDIA_INFO, () => {
+              const mi = (player as { mediaInfo?: { hasAudio?: boolean; audioCodec?: string } }).mediaInfo
+              if (!cancelled && mi && mi.hasAudio === false) {
+                setAudioNote(t('player.noAudio'))
+              }
+            })
             player.on(
               mpegts.Events.ERROR,
               (errorType: string, errorDetail: string, info?: { code?: number; msg?: string }) => {
@@ -515,6 +527,15 @@ export default function Player({ request, onClose }: PlayerProps) {
           <div className="pointer-events-none absolute inset-0 grid place-items-center gap-3 text-center">
             <span className="h-12 w-12 animate-spin rounded-full border-[3px] border-white/20 border-t-buisgroen" />
             {status === 'native' && <span className="text-sm text-mist-400">{t('player.native')}</span>}
+          </div>
+        )}
+
+        {audioNote && status === 'playing' && (
+          <div className="pointer-events-none absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full bg-antraciet-900/85 px-4 py-2 text-xs font-medium text-mist backdrop-blur-sm">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-amber-300" fill="currentColor" aria-hidden="true">
+              <path d="M3.5 9v6h4l5 5V4l-5 5h-4zm13.7-.2 1.4 1.4L16.4 12l2.2 2.2-1.4 1.4L15 13.4l-2.2 2.2-1.4-1.4L13.6 12l-2.2-2.2 1.4-1.4L15 10.6l2.2-1.8z" />
+            </svg>
+            {audioNote}
           </div>
         )}
 
