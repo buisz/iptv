@@ -123,19 +123,33 @@ function onSuccess(l: HostLimiter): void {
   }
 }
 
-/** Data-fetch via de proxy met adaptieve, per-host limiet en 429/503-retry. */
-async function dataFetch(url: string, signal?: AbortSignal): Promise<Response> {
+/**
+ * Data-fetch via de proxy met adaptieve, per-host limiet.
+ *
+ * @param background  Achtergrond-call (bijv. EPG per tegel): bij 429/503 NIET
+ *   retryen — dat zou de storm juist versterken. We laten de limiter er wél van
+ *   leren (terugschroeven) en geven de 429-respons terug; de aanroeper toont dan
+ *   simpelweg geen data. Voorgrond-calls (catalogus) retryen wél met backoff.
+ */
+async function dataFetch(url: string, signal?: AbortSignal, background = false): Promise<Response> {
   const l = limiterFor(hostOf(url))
   await acquire(l)
   try {
     let res = await fetch(proxied(url), { signal })
-    for (let attempt = 0; (res.status === 429 || res.status === 503) && attempt < 4; attempt++) {
+    if (res.status === 429 || res.status === 503) {
       const retryAfter = Number(res.headers.get('retry-after'))
-      const backoff = retryAfter > 0 ? retryAfter * 1000 : Math.min(8000, 500 * 2 ** attempt)
-      onThrottled(l, backoff)
-      await wait(backoff)
-      if (signal?.aborted) break
-      res = await fetch(proxied(url), { signal })
+      const base = retryAfter > 0 ? retryAfter * 1000 : 500
+      if (background) {
+        onThrottled(l, base) // leren, maar niet opnieuw proberen
+      } else {
+        for (let attempt = 0; (res.status === 429 || res.status === 503) && attempt < 4; attempt++) {
+          const backoff = retryAfter > 0 ? retryAfter * 1000 : Math.min(8000, 500 * 2 ** attempt)
+          onThrottled(l, backoff)
+          await wait(backoff)
+          if (signal?.aborted) break
+          res = await fetch(proxied(url), { signal })
+        }
+      }
     }
     if (res.ok) onSuccess(l)
     return res
@@ -154,8 +168,12 @@ export async function fetchText(url: string, signal?: AbortSignal): Promise<stri
 }
 
 /** Haal JSON op via de proxy. Xtream geeft soms tekst/HTML bij fouten — vang dat af. */
-export async function fetchJson<T = unknown>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await dataFetch(url, signal)
+export async function fetchJson<T = unknown>(
+  url: string,
+  signal?: AbortSignal,
+  opts?: { background?: boolean },
+): Promise<T> {
+  const res = await dataFetch(url, signal, opts?.background)
   if (!res.ok) {
     throw new Error(`Server antwoordde ${res.status} voor ${shorten(url)}`)
   }

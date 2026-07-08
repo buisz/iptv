@@ -1,7 +1,9 @@
-import { useEffect, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { EpgEntry, MediaItem } from '../types/content'
 import type { Source } from '../types/source'
 import { loadShortEpg } from '../api/xtream'
+
+const MAX_EPG_ATTEMPTS = 3
 
 /**
  * Laadt de EPG van één kanaal **lui** (pas als het element in beeld komt), via
@@ -16,6 +18,7 @@ export function useLazyChannelEpg(
 ): EpgEntry[] | null {
   const [visible, setVisible] = useState(false)
   const [epg, setEpg] = useState<EpgEntry[] | null>(null)
+  const attempts = useRef(0)
 
   useEffect(() => {
     const el = ref.current
@@ -39,23 +42,47 @@ export function useLazyChannelEpg(
 
   useEffect(() => {
     if (!visible || epg) return
+
+    // XMLTV eerst (gratis, al gedownload): heeft dit kanaal al nu/straks, dan géén
+    // per-kanaal-call doen — dat scheelt bij providers waar de XMLTV goed matcht.
+    const fromXmltv = [item.epgNow, item.epgNext].filter(Boolean) as EpgEntry[]
+    if (fromXmltv.length) {
+      setEpg(fromXmltv)
+      return
+    }
+
+    // Alleen Xtream-live kan per kanaal EPG leveren; anders definitief leeg.
+    if (!(source.kind === 'xtream' && item.ref?.kind === 'xtream-live')) {
+      setEpg([])
+      return
+    }
+
     let cancelled = false
-    void (async () => {
-      let list: EpgEntry[] = []
-      if (source.kind === 'xtream' && item.ref?.kind === 'xtream-live') {
-        try {
-          list = await loadShortEpg(source, item.ref.id, 8)
-        } catch {
-          /* val terug op XMLTV-nu/straks */
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const streamId = item.ref.id
+
+    const tryFetch = async () => {
+      try {
+        const list = await loadShortEpg(source, streamId, 8)
+        // Succes (ook een lege lijst = provider heeft géén EPG) → definitief.
+        if (!cancelled) setEpg(list)
+      } catch {
+        // Throttled/fout: begrensd + gespreid opnieuw, zodat de tegel alsnog vult
+        // zodra de limiter hersteld is — zonder opnieuw te stormen.
+        if (cancelled) return
+        attempts.current += 1
+        if (attempts.current < MAX_EPG_ATTEMPTS) {
+          const delay = 3000 * attempts.current + Math.random() * 2500 // jitter
+          timer = setTimeout(tryFetch, delay)
+        } else {
+          setEpg([]) // opgegeven → geen verdere pogingen deze mount
         }
       }
-      if (!list.length) {
-        list = [item.epgNow, item.epgNext].filter(Boolean) as EpgEntry[]
-      }
-      if (!cancelled) setEpg(list)
-    })()
+    }
+    void tryFetch()
     return () => {
       cancelled = true
+      if (timer) clearTimeout(timer)
     }
   }, [visible, epg, source, item])
 

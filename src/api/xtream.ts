@@ -143,6 +143,7 @@ export async function loadShortEpg(
   const data = await fetchJson<{ epg_listings?: XtreamShortEpgItem[] }>(
     apiUrl(s, 'get_short_epg', { stream_id: streamId, limit }),
     signal,
+    { background: true }, // zachte baan: geen retry-storm bij 429
   )
   const out: EpgEntry[] = []
   for (const e of data.epg_listings ?? []) {
