@@ -58,13 +58,20 @@ function GuideRow({ item, rowIndex, source, onPlay, onFavoriteChange }: GuideRow
 
   const now = Date.now()
 
-  // Toon alleen lopende + komende programma's, ontdubbel (zelfde starttijd) en bepaal
-  // precies één "Nu" (de meest recente die al begonnen is). Voorkomt meerdere "Nu"-blokken.
-  const list = (epg ?? [])
-    .filter((p) => p.stop > now)
-    .filter((p, i, a) => i === 0 || p.start !== a[i - 1].start)
-  let nowIdx = -1
-  for (let i = 0; i < list.length; i++) if (list[i].start <= now) nowIdx = i
+  // Providers leveren soms overlappende/dubbele programma's rond "nu". Toon daarom
+  // precies één lopend programma (de meest recente die al begonnen is en nog loopt) +
+  // alleen toekomstige, en klap opeenvolgende dubbele titels samen. Zo begint elke rij
+  // consistent bij "Nu": [Nu …] [tijd …] [tijd …] — geen blok vóór "Nu".
+  const raw = epg ?? []
+  const current = raw
+    .filter((p) => p.start <= now && p.stop > now)
+    .sort((a, b) => a.start - b.start)
+    .pop()
+  const upcoming = raw.filter((p) => p.start > now).sort((a, b) => a.start - b.start)
+  const list = (current ? [current, ...upcoming] : upcoming).filter(
+    (p, i, a) => i === 0 || p.title !== a[i - 1].title,
+  )
+  const nowIdx = current ? 0 : -1
 
   return (
     <div
