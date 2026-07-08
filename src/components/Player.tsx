@@ -270,8 +270,10 @@ export default function Player({ request, onClose }: PlayerProps) {
           }
         }
 
-        // Native fallback (native HLS op Safari, of progressieve MP4 e.d.).
-        video!.src = url!
+        // Native fallback. Progressieve VOD (MP4/MKV e.d.) via de proxy: dat lost
+        // 302-token-redirects, CORB (NotSameOrigin) en cross-origin op. Native HLS
+        // (Safari) blijft direct — het video-element haalt HLS-segmenten CORS-vrij op.
+        video!.src = isHls(url!) ? url! : proxied(url!, { stream: true })
         cleanupRef.current = () => {
           video!.removeAttribute('src')
           video!.load()
@@ -286,7 +288,9 @@ export default function Player({ request, onClose }: PlayerProps) {
     const onErr = () => {
       // MediaError-code: 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED.
       const code = video.error?.code
-      if (code === 3 || code === 4) fail(codecHint('stream'))
+      const m = url ? url.match(/\.(mkv|avi|wmv|flv)(\?|$)/i) : null
+      if (m) fail(containerHint(m[1].toUpperCase()))
+      else if (code === 3 || code === 4) fail(codecHint('stream'))
       else if (code === 2) fail(corsHint('Deze stream speelt niet af in de browser.'))
       else fail('Deze stream speelt niet af in de browser.')
     }
@@ -411,6 +415,15 @@ function corsHint(base: string): string {
   return (
     `${base} In een browser blokkeert CORS vaak directe IPTV-streams. ` +
     `Op de doel-box (Android TV / Fire Stick) of achter een proxy speelt dit wél af.`
+  )
+}
+
+/** Container (MKV/AVI/…) die browsers sowieso niet afspelen — géén CORS/codec-detail. */
+function containerHint(container: string): string {
+  return (
+    `Dit bestandsformaat (${container}) kan een browser niet afspelen — dat ligt aan de ` +
+    `container, niet aan CORS. Deze film speelt wél op de box (Android TV / Fire Stick / Tizen), ` +
+    `waar de native speler ${container} ondersteunt.`
   )
 }
 

@@ -44,15 +44,20 @@ function devProxy(): Plugin {
             return
           }
 
-          // Foutpagina i.p.v. video (HTML/JSON): geef een eerlijke 502 met snippet,
-          // zodat de speler niet "codec-fout" toont bij een verlopen account e.d.
-          // Alleen voor stream-verzoeken — API-calls geven legitiem JSON terug.
-          if (isStream && looksLikeErrorPage(contentType)) {
-            const snippet = (await upstream.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
-            res.statusCode = 502
+          // Stream-verzoek dat geen video oplevert (foutstatus óf HTML/JSON-body):
+          // log de échte reden naar de dev-terminal en geef een eerlijke status
+          // terug i.p.v. rommel naar de demuxer te pipen (die "codec-fout" toont).
+          if (isStream && (!upstream.ok || looksLikeErrorPage(contentType))) {
+            const body = await upstream.text().catch(() => '')
+            const snippet = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+            console.warn(
+              `[buisz-proxy] stream gaf geen video: HTTP ${upstream.status} ` +
+                `${contentType || '(geen content-type)'}\n  URL: ${target}\n  Body: ${snippet || '(leeg)'}`,
+            )
+            res.statusCode = upstream.ok ? 502 : upstream.status
             res.setHeader('content-type', 'text/plain; charset=utf-8')
             res.setHeader('access-control-allow-origin', '*')
-            res.end(`Upstream gaf een foutpagina i.p.v. video: ${snippet || '(leeg)'}`)
+            res.end(`Upstream antwoordde HTTP ${upstream.status} (${contentType || 'onbekend'}): ${snippet || '(leeg)'}`)
             return
           }
 
