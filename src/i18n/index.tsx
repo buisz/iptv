@@ -54,6 +54,16 @@ const nl: Dict = {
   'player.errorTitle': 'Afspelen lukt niet',
   'settings.title': 'Instellingen',
   'settings.language': 'Taal',
+  'settings.buffer': 'Afspelen / buffer',
+  'settings.bufferAuto': 'Auto',
+  'settings.bufferLow': 'Lage latentie',
+  'settings.bufferSmooth': 'Vloeiend',
+  'settings.bufferHint.auto':
+    'Start gebalanceerd en vergroot de buffer automatisch als het beeld blijft haperen. Aanbevolen.',
+  'settings.bufferHint.low':
+    'Zo dicht mogelijk bij live — kan haperen op een onstabiele of trage verbinding.',
+  'settings.bufferHint.smooth':
+    'Grootste buffer: minste onderbrekingen, maar een paar seconden extra vertraging. Goed voor VPN/zwak netwerk. Let op: een buffer vangt jitter op, geen structureel tekort aan bandbreedte of een codec-probleem.',
   'settings.source': 'Bron',
   'settings.sourceManage': 'Bron beheren',
   'settings.restartWizard': 'Wizard opnieuw starten',
@@ -108,6 +118,16 @@ const en: Dict = {
   'player.errorTitle': "Can't play this",
   'settings.title': 'Settings',
   'settings.language': 'Language',
+  'settings.buffer': 'Playback / buffer',
+  'settings.bufferAuto': 'Auto',
+  'settings.bufferLow': 'Low latency',
+  'settings.bufferSmooth': 'Smooth',
+  'settings.bufferHint.auto':
+    'Starts balanced and grows the buffer automatically if playback keeps stalling. Recommended.',
+  'settings.bufferHint.low':
+    'As close to live as possible — may stall on an unstable or slow connection.',
+  'settings.bufferHint.smooth':
+    'Largest buffer: fewest interruptions, but a few seconds of extra delay. Good for VPN/weak networks. Note: a buffer absorbs jitter, not a genuine bandwidth shortfall or a codec problem.',
   'settings.source': 'Source',
   'settings.sourceManage': 'Manage source',
   'settings.restartWizard': 'Restart wizard',

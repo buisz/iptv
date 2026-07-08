@@ -4,6 +4,7 @@ import type { Source } from '../types/source'
 import { DEMO_SOURCE } from '../types/source'
 import { demoCatalog, loadCatalog } from '../api/catalog'
 import { loadAndApplyEpg } from '../api/epg'
+import { markCatalogLoaded, resetHealth } from '../api/health'
 
 const STORAGE_KEY = 'buisz.source'
 
@@ -67,9 +68,12 @@ export function useCatalog(): UseCatalog {
 
     setLoading(true)
     setError(null)
+    resetHealth() // nieuwe bron → schone verbindingsdiagnose
     try {
       const result = await loadCatalog(next, controller?.signal)
       if (aborted()) return false
+      // Catalogus geladen = account/API bereikbaar; basis voor de geo-/netwerkdiagnose.
+      if (next.kind !== 'demo') markCatalogLoaded()
       setCatalog(result)
       setSourceState(next)
       storeSource(next)

@@ -12,6 +12,21 @@ import {
   nativeVideoAvailable,
   onNativeExit,
 } from '../api/player/nativeVideo'
+import {
+  AdaptiveBuffer,
+  getBufferPreset,
+  hlsConfig,
+  mpegtsConfig,
+  startProfile,
+  type BufferProfile,
+} from '../api/player/buffering'
+import {
+  geoBlockHint,
+  geoBlockSuspected,
+  recordStreamFailure,
+  recordStreamSuccess,
+  type FailCategory,
+} from '../api/health'
 
 export interface PlayRequest {
   title: string
@@ -199,14 +214,20 @@ export default function Player({ request, onClose }: PlayerProps) {
     setStatus('loading')
     setMessage('')
 
-    const fail = (msg: string) => {
-      if (!cancelled) {
-        setStatus('error')
-        setMessage(msg)
-      }
+    const streamId = request.id
+    // Toon de fout + registreer de categorie (voor de geo-/netwerkdiagnose). Bij een
+    // netwerkfout én bewijs dat het account/API wél werkt, plakken we de geo-hint erbij.
+    const fail = (msg: string, category: FailCategory = 'unknown') => {
+      if (cancelled) return
+      recordStreamFailure(streamId, category)
+      const full = category === 'network' && geoBlockSuspected() ? `${msg}\n\n${geoBlockHint()}` : msg
+      setStatus('error')
+      setMessage(full)
     }
 
-    async function attach() {
+    const preset = getBufferPreset()
+
+    async function attachEngine(profile: BufferProfile) {
       try {
         if (isHls(url!) && !video!.canPlayType('application/vnd.apple.mpegurl')) {
           // HLS via hls.js (browsers zonder native HLS).
@@ -225,18 +246,19 @@ export default function Player({ request, onClose }: PlayerProps) {
                 super.load(context, config, callbacks)
               }
             }
-            const hls = new Hls({ enableWorker: true, loader: ProxyLoader as never })
+            const hls = new Hls({ enableWorker: true, loader: ProxyLoader as never, ...hlsConfig(profile) })
             hls.loadSource(url!)
             hls.attachMedia(video!)
             hls.on(Hls.Events.ERROR, (_e, data) => {
               if (!data.fatal) return
               const status = (data.response as { code?: number } | undefined)?.code
               if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                fail(codecHint('HLS'))
-              } else if (status && status >= 400) {
-                fail(httpHint(status))
+                fail(codecHint('HLS'), 'codec')
+              } else if (status && status >= 400 && status !== 502 && status !== 504) {
+                fail(httpHint(status), httpCategory(status))
               } else {
-                fail(corsHint('HLS-stream kon niet geladen worden.'))
+                // Geen provider-status (of onze proxy-502/504) → netwerklaag.
+                fail(networkBase, 'network')
               }
             })
             cleanupRef.current = () => hls.destroy()
@@ -250,16 +272,16 @@ export default function Player({ request, onClose }: PlayerProps) {
           if (cancelled) return
           if (mpegts.isSupported()) {
             const player = mpegts.createPlayer(
-              // mpegts.js haalt de stream via fetch op → CORS. Via de proxy
-              // (dev: /__proxy, web-deploy: VITE_PROXY_BASE) omzeilen we dat.
+              // mpegts.js haalt de stream via fetch op → CORS. Via de proxy omzeilen we dat.
               { type: 'mpegts', isLive: request!.kind === 'live', url: proxied(url!, { stream: true }) },
-              { enableWorker: true, liveBufferLatencyChasing: request!.kind === 'live' },
+              mpegtsConfig(profile),
             )
             player.attachMediaElement(video!)
             player.on(
               mpegts.Events.ERROR,
               (errorType: string, errorDetail: string, info?: { code?: number; msg?: string }) => {
-                fail(mpegtsErrorMessage(mpegts, errorType, errorDetail, info))
+                const { msg, category } = mpegtsError(mpegts, errorType, errorDetail, info)
+                fail(msg, category)
               },
             )
             player.load()
@@ -279,26 +301,52 @@ export default function Player({ request, onClose }: PlayerProps) {
           video!.load()
         }
       } catch {
-        fail('Afspeelmotor kon niet geladen worden.')
+        fail('Afspeelmotor kon niet geladen worden.', 'unknown')
       }
     }
 
-    void attach()
-    const onPlaying = () => !cancelled && setStatus('playing')
+    // Herbouw met een ander profiel (voor auto-escalatie bij live haperen).
+    const rebuild = (profile: BufferProfile) => {
+      cleanupRef.current()
+      cleanupRef.current = () => {}
+      void attachEngine(profile)
+    }
+
+    void attachEngine(startProfile(preset))
+
+    // Auto-voorkeur op live: detecteer herhaald haperen → één keer opschalen naar SMOOTH.
+    let adaptive: AdaptiveBuffer | undefined
+    if (preset === 'auto' && request.kind === 'live') {
+      adaptive = new AdaptiveBuffer(video, {
+        onEscalate: () => {
+          if (cancelled) return
+          setStatus('loading')
+          setMessage('')
+          rebuild('SMOOTH')
+        },
+      })
+    }
+
+    const onPlaying = () => {
+      if (cancelled) return
+      recordStreamSuccess(streamId)
+      setStatus('playing')
+    }
     const onErr = () => {
       // MediaError-code: 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED.
       const code = video.error?.code
       const m = url ? url.match(/\.(mkv|avi|wmv|flv)(\?|$)/i) : null
-      if (m) fail(containerHint(m[1].toUpperCase()))
-      else if (code === 3 || code === 4) fail(codecHint('stream'))
-      else if (code === 2) fail(corsHint('Deze stream speelt niet af in de browser.'))
-      else fail('Deze stream speelt niet af in de browser.')
+      if (m) fail(containerHint(m[1].toUpperCase()), 'container')
+      else if (code === 3 || code === 4) fail(codecHint('stream'), 'codec')
+      else if (code === 2) fail(networkBase, 'network')
+      else fail('Deze stream speelt niet af in de browser.', 'unknown')
     }
     video.addEventListener('playing', onPlaying)
     video.addEventListener('error', onErr)
 
     return () => {
       cancelled = true
+      adaptive?.destroy()
       video.removeEventListener('playing', onPlaying)
       video.removeEventListener('error', onErr)
       cleanupRef.current()
@@ -411,11 +459,16 @@ export default function Player({ request, onClose }: PlayerProps) {
   )
 }
 
-function corsHint(base: string): string {
-  return (
-    `${base} In een browser blokkeert CORS vaak directe IPTV-streams. ` +
-    `Op de doel-box (Android TV / Fire Stick) of achter een proxy speelt dit wél af.`
-  )
+/** Korte basis-melding bij een netwerklaag-fout (time-out/geweigerd/onze proxy-502). */
+const networkBase =
+  'De streaming-server reageerde niet — time-out of geweigerd vanaf dit netwerk.'
+
+/** Categorie van een HTTP-status voor de geo-/netwerkdiagnose. */
+function httpCategory(status: number): FailCategory {
+  if (status === 401 || status === 403) return 'http-auth'
+  if (status === 404) return 'http-notfound'
+  if (status === 509 || status === 512) return 'http-limit'
+  return 'unknown'
 }
 
 /** Container (MKV/AVI/…) die browsers sowieso niet afspelen — géén CORS/codec-detail. */
@@ -453,22 +506,25 @@ function httpHint(status: number): string {
 }
 
 /**
- * Vertaalt een mpegts.js-fout naar een eerlijke melding: MEDIA_ERROR = codec (geen
- * CORS), NETWORK_ERROR met HTTP-status ≥400 = serverfout, anders netwerk/CORS.
+ * Vertaalt een mpegts.js-fout naar een eerlijke melding + categorie: MEDIA_ERROR = codec,
+ * NETWORK_ERROR met provider-status ≥400 (niet onze proxy-502/504) = serverfout, anders
+ * netwerklaag (kenmerkend voor een geo-/netwerkblokkade).
  */
-function mpegtsErrorMessage(
+function mpegtsError(
   mpegts: { ErrorTypes: { NETWORK_ERROR: string; MEDIA_ERROR: string } },
   errorType: string,
   _errorDetail: string,
   info?: { code?: number },
-): string {
+): { msg: string; category: FailCategory } {
   if (errorType === mpegts.ErrorTypes.MEDIA_ERROR) {
-    return codecHint('live-zender')
+    return { msg: codecHint('live-zender'), category: 'codec' }
   }
   if (errorType === mpegts.ErrorTypes.NETWORK_ERROR) {
     const code = info?.code
-    if (typeof code === 'number' && code >= 400) return httpHint(code)
-    return corsHint('MPEG-TS-stream kon niet geladen worden (netwerkfout).')
+    if (typeof code === 'number' && code >= 400 && code !== 502 && code !== 504) {
+      return { msg: httpHint(code), category: httpCategory(code) }
+    }
+    return { msg: networkBase, category: 'network' }
   }
-  return 'MPEG-TS-stream kon niet afgespeeld worden.'
+  return { msg: 'MPEG-TS-stream kon niet afgespeeld worden.', category: 'unknown' }
 }

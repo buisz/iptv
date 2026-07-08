@@ -4,6 +4,7 @@ import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { clearFavorites } from '../api/favorites'
 import { clearProgress } from '../api/progress'
 import { pairBase, setPairBase } from '../api/pairing'
+import { getBufferPreset, setBufferPreset, type BufferPreset } from '../api/player/buffering'
 
 interface SettingsOverlayProps {
   open: boolean
@@ -27,6 +28,13 @@ const STORAGE_KEYS = [
   'buisz.favorites',
   'buisz.tmdbKey',
   'buisz.lang',
+  'buisz.buffer',
+]
+
+const BUFFER_PRESETS: { id: BufferPreset; labelKey: string }[] = [
+  { id: 'auto', labelKey: 'settings.bufferAuto' },
+  { id: 'low', labelKey: 'settings.bufferLow' },
+  { id: 'smooth', labelKey: 'settings.bufferSmooth' },
 ]
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -88,6 +96,7 @@ export default function SettingsOverlay({
 }: SettingsOverlayProps) {
   const { lang, setLang, t } = useI18n()
   const [pair, setPair] = useState(pairBase())
+  const [buffer, setBuffer] = useState<BufferPreset>(() => getBufferPreset())
 
   useEffect(() => {
     if (!open) return
@@ -156,6 +165,30 @@ export default function SettingsOverlay({
                 </button>
               ))}
             </div>
+          </Section>
+
+          {/* Buffer / afspelen */}
+          <Section title={t('settings.buffer')}>
+            <div className="flex gap-2 p-3">
+              {BUFFER_PRESETS.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => {
+                    setBuffer(b.id)
+                    setBufferPreset(b.id)
+                  }}
+                  className={[
+                    'flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-buisgroen',
+                    buffer === b.id ? 'bg-buisgroen text-antraciet-900' : 'bg-white/[0.04] text-mist-400 hover:text-mist',
+                  ].join(' ')}
+                >
+                  {t(b.labelKey)}
+                </button>
+              ))}
+            </div>
+            <p className="border-t border-white/[0.06] px-4 py-3 text-xs leading-relaxed text-mist-400">
+              {t(`settings.bufferHint.${buffer}`)}
+            </p>
           </Section>
 
           {/* Bron */}
