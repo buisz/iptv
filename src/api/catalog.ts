@@ -19,7 +19,16 @@ export function demoCatalog(): Catalog {
   }
 }
 
-export async function loadCatalog(source: Source, signal?: AbortSignal): Promise<Catalog> {
+/**
+ * @param onPartial  Optionele callback die (voor Xtream) tussentijdse, groeiende
+ *   catalogi doorgeeft naarmate live/films/series binnenkomen — zodat de UI al
+ *   toont wat er is i.p.v. te wachten op de volledige download.
+ */
+export async function loadCatalog(
+  source: Source,
+  signal?: AbortSignal,
+  onPartial?: (partial: Catalog) => void,
+): Promise<Catalog> {
   switch (source.kind) {
     case 'demo':
       return demoCatalog()
@@ -28,6 +37,6 @@ export async function loadCatalog(source: Source, signal?: AbortSignal): Promise
     case 'm3u-text':
       return loadM3uTextCatalog(source)
     case 'xtream':
-      return loadXtreamCatalog(source, signal)
+      return loadXtreamCatalog(source, signal, onPartial)
   }
 }

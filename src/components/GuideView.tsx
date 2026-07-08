@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import type { EpgEntry, MediaItem } from '../types/content'
+import { useRef, useState } from 'react'
+import type { MediaItem } from '../types/content'
 import type { Source } from '../types/source'
-import { loadShortEpg } from '../api/xtream'
 import { isFavorite, toggleFavorite } from '../api/favorites'
+import { useLazyChannelEpg } from '../hooks/useLazyChannelEpg'
 import { useT } from '../i18n'
 
 /**
@@ -51,53 +51,9 @@ interface GuideRowProps {
 function GuideRow({ item, rowIndex, source, onPlay, onFavoriteChange }: GuideRowProps) {
   const t = useT()
   const rowRef = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
-  const [epg, setEpg] = useState<EpgEntry[] | null>(null)
   const [fav, setFav] = useState(() => isFavorite(item.id))
   const [imgOk, setImgOk] = useState(Boolean(item.backdrop || item.poster))
-
-  // Lui laden: pas EPG ophalen als de rij (bijna) in beeld komt.
-  useEffect(() => {
-    const el = rowRef.current
-    if (!el) return
-    if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true)
-      return
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisible(true)
-          io.disconnect()
-        }
-      },
-      { rootMargin: '250px' },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
-
-  useEffect(() => {
-    if (!visible || epg) return
-    let cancelled = false
-    void (async () => {
-      let list: EpgEntry[] = []
-      if (source.kind === 'xtream' && item.ref?.kind === 'xtream-live') {
-        try {
-          list = await loadShortEpg(source, item.ref.id, 8)
-        } catch {
-          /* val terug op de vooraf toegepaste XMLTV-nu/straks */
-        }
-      }
-      if (!list.length) {
-        list = [item.epgNow, item.epgNext].filter(Boolean) as EpgEntry[]
-      }
-      if (!cancelled) setEpg(list)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [visible, epg, source, item])
+  const epg = useLazyChannelEpg(rowRef, item, source)
 
   const now = Date.now()
   const logo = item.backdrop || item.poster

@@ -128,14 +128,26 @@ export default function PosterCard({ item, row, col, showProgress, onOpen, onFav
       {/* Titel / context onderaan */}
       <div className="absolute inset-x-0 bottom-0 p-2.5 text-left">
         <p className="line-clamp-1 text-sm font-semibold text-mist">{item.title}</p>
-        {item.tagline && (
+        {isLive && item.epgNow ? (
+          <>
+            <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-buisgroen">
+              NU · {item.epgNow.title}
+            </p>
+            {item.epgNext && (
+              <p className="line-clamp-1 text-[10px] font-medium text-mist-400">
+                Straks · {item.epgNext.title}
+              </p>
+            )}
+          </>
+        ) : item.tagline ? (
           <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-mist-400">{item.tagline}</p>
-        )}
-        {!item.tagline && item.year && (
-          <p className="mt-0.5 text-[11px] font-medium text-mist-400">
-            {item.year}
-            {item.rating ? ` · ${item.rating}+` : ''}
-          </p>
+        ) : (
+          item.year && (
+            <p className="mt-0.5 text-[11px] font-medium text-mist-400">
+              {item.year}
+              {item.rating ? ` · ${item.rating}+` : ''}
+            </p>
+          )
         )}
       </div>
 

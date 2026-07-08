@@ -70,7 +70,14 @@ export function useCatalog(): UseCatalog {
     setError(null)
     resetHealth() // nieuwe bron → schone verbindingsdiagnose
     try {
-      const result = await loadCatalog(next, controller?.signal)
+      // Progressief: toon secties zodra ze binnen zijn (niet wachten op de volledige
+      // download). setCatalog + setSourceState zodat de UI meteen iets toont.
+      const onPartial = (partial: Catalog) => {
+        if (aborted()) return
+        setCatalog(partial)
+        setSourceState(next)
+      }
+      const result = await loadCatalog(next, controller?.signal, onPartial)
       if (aborted()) return false
       // Catalogus geladen = account/API bereikbaar; basis voor de geo-/netwerkdiagnose.
       if (next.kind !== 'demo') markCatalogLoaded()

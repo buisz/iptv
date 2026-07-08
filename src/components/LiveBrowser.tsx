@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ContentRowData, MediaItem } from '../types/content'
 import type { Source } from '../types/source'
 import PosterCard from './PosterCard'
 import GuideView from './GuideView'
+import { pickNowNext, useLazyChannelEpg } from '../hooks/useLazyChannelEpg'
 import { useT } from '../i18n'
 
 /**
@@ -29,6 +30,33 @@ type LiveView = 'guide' | 'grid'
 const VIEW_KEY = 'buisz.liveView'
 
 const FAV_ID = '__favorites'
+
+/** Grid-tegel die lui de EPG laadt en NU/STRAKS in de tegel toont. */
+function LiveGridCard({
+  item,
+  source,
+  row,
+  col,
+  onOpen,
+  onFavoriteChange,
+}: {
+  item: MediaItem
+  source: Source
+  row: number
+  col: number
+  onOpen: (item: MediaItem) => void
+  onFavoriteChange?: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const epg = useLazyChannelEpg(ref, item, source)
+  const { now, next } = pickNowNext(epg, Date.now())
+  const withEpg = now || next ? { ...item, epgNow: now, epgNext: next } : item
+  return (
+    <div ref={ref}>
+      <PosterCard item={withEpg} row={row} col={col} fill onOpen={onOpen} onFavoriteChange={onFavoriteChange} />
+    </div>
+  )
+}
 
 function colsFor(width: number): number {
   if (width >= 1280) return 5
@@ -172,12 +200,12 @@ export default function LiveBrowser({
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
             {selected.items.map((item, i) => (
-              <PosterCard
+              <LiveGridCard
                 key={`${selected.id}-${item.id}-${i}`}
                 item={item}
+                source={source}
                 row={Math.floor(i / cols)}
                 col={i % cols}
-                fill
                 onOpen={onOpen}
                 onFavoriteChange={onFavoriteChange}
               />

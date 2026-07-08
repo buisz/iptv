@@ -11,9 +11,6 @@ import type { M3uTextSource, M3uUrlSource } from '../types/source'
 import { fetchText } from './proxy'
 import { qualityFromName } from './quality'
 
-const MAX_ROWS_PER_SECTION = 40
-const MAX_ITEMS_PER_ROW = 60
-
 export interface M3uTrack {
   name: string
   url: string
@@ -128,7 +125,7 @@ function toMediaItem(track: M3uTrack, index: number, kind: MediaKind): MediaItem
   }
 }
 
-function rowsByGroup(items: MediaItem[], notices: string[], sectionLabel: string): ContentRowData[] {
+function rowsByGroup(items: MediaItem[]): ContentRowData[] {
   const byGroup = new Map<string, MediaItem[]>()
   for (const item of items) {
     const group = item.genres[0] || 'Overig'
@@ -136,17 +133,10 @@ function rowsByGroup(items: MediaItem[], notices: string[], sectionLabel: string
     list.push(item)
     byGroup.set(group, list)
   }
-
+  // Geen cap: alle groepen en items (lazy-loaded beeld/EPG).
   const rows: ContentRowData[] = []
   for (const [group, list] of byGroup) {
-    if (list.length > MAX_ITEMS_PER_ROW) {
-      notices.push(`${sectionLabel} · "${group}" afgekapt tot ${MAX_ITEMS_PER_ROW} items.`)
-    }
-    rows.push({ id: `grp-${kindSafe(group)}`, title: group, items: list.slice(0, MAX_ITEMS_PER_ROW) })
-    if (rows.length >= MAX_ROWS_PER_SECTION) {
-      notices.push(`${sectionLabel}: alleen de eerste ${MAX_ROWS_PER_SECTION} groepen getoond.`)
-      break
-    }
+    rows.push({ id: `grp-${kindSafe(group)}`, title: group, items: list })
   }
   return rows
 }
@@ -160,16 +150,15 @@ export function playlistToCatalog(
   playlist: M3uPlaylist,
   sourceLabel: string,
 ): Catalog {
-  const notices: string[] = []
   const classified = playlist.tracks.map((t) => ({ track: t, kind: classify(t) }))
 
   const live = classified.filter((c) => c.kind === 'live').map((c, i) => toMediaItem(c.track, i, 'live'))
   const movies = classified.filter((c) => c.kind === 'movie').map((c, i) => toMediaItem(c.track, i, 'movie'))
   const series = classified.filter((c) => c.kind === 'series').map((c, i) => toMediaItem(c.track, i, 'series'))
 
-  const liveRows = rowsByGroup(live, notices, 'Live TV')
-  const filmRows = rowsByGroup(movies, notices, 'Films')
-  const serieRows = rowsByGroup(series, notices, 'Series')
+  const liveRows = rowsByGroup(live)
+  const filmRows = rowsByGroup(movies)
+  const serieRows = rowsByGroup(series)
 
   const sections = []
   const homeRows: ContentRowData[] = []
@@ -198,7 +187,6 @@ export function playlistToCatalog(
     sourceLabel,
     epgUrl: playlist.epgUrl,
     allItems: [...live, ...movies, ...series],
-    notices: notices.length ? notices : undefined,
   }
 }
 

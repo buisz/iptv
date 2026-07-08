@@ -12,10 +12,6 @@ import type { XtreamSource, LiveFormatPreset } from '../types/source'
 import { fetchJson } from './proxy'
 import { normalizeCodec, qualityFromName, resFromHeight } from './quality'
 
-// ── Limieten zodat zeer grote playlists de UI niet verstikken. ──
-const MAX_ROWS_PER_SECTION = 40
-const MAX_ITEMS_PER_ROW = 40
-
 // ── Ruwe Xtream-vormen (defensief getypeerd; providers wijken af). ──
 interface XtreamCategory {
   category_id: string
@@ -235,8 +231,6 @@ function buildRows(
   categories: XtreamCategory[],
   items: MediaItem[],
   rawCategoryId: (item: MediaItem) => string | undefined,
-  notices: string[],
-  sectionLabel: string,
 ): ContentRowData[] {
   const byCat = new Map<string, MediaItem[]>()
   for (const item of items) {
@@ -246,22 +240,12 @@ function buildRows(
     byCat.set(cat, list)
   }
 
+  // Geen cap meer: toon alle categorieën en alle items (lazy-loaded beeld/EPG).
   const rows: ContentRowData[] = []
   for (const cat of categories) {
     const list = byCat.get(cat.category_id)
     if (!list || list.length === 0) continue
-    if (list.length > MAX_ITEMS_PER_ROW) {
-      notices.push(`${sectionLabel} · "${cat.category_name}" afgekapt tot ${MAX_ITEMS_PER_ROW} items.`)
-    }
-    rows.push({
-      id: `cat-${cat.category_id}`,
-      title: cat.category_name,
-      items: list.slice(0, MAX_ITEMS_PER_ROW),
-    })
-    if (rows.length >= MAX_ROWS_PER_SECTION) {
-      notices.push(`${sectionLabel}: alleen de eerste ${MAX_ROWS_PER_SECTION} categorieën getoond.`)
-      break
-    }
+    rows.push({ id: `cat-${cat.category_id}`, title: cat.category_name, items: list })
   }
   return rows
 }
@@ -354,43 +338,20 @@ export function episodeStreamUrl(
 
 // ── Hoofdlader ───────────────────────────────────────────────────────────────
 
-export async function loadXtreamCatalog(s: XtreamSource, signal?: AbortSignal): Promise<Catalog> {
-  // Verifieer eerst de inloggegevens via de account-info (geen action).
-  const account = await fetchJson<{ user_info?: { auth?: number; message?: string } }>(
-    apiUrl(s),
-    signal,
-  )
-  if (account.user_info && account.user_info.auth === 0) {
-    throw new Error(account.user_info.message || 'Xtream-login geweigerd (controleer gegevens).')
-  }
+type Pair = { item: MediaItem; cat?: string }
 
-  const notices: string[] = []
-
-  const [liveCats, vodCats, seriesCats, liveRaw, vodRaw, seriesRaw] = await Promise.all([
-    fetchJson<XtreamCategory[]>(apiUrl(s, 'get_live_categories'), signal).catch(() => []),
-    fetchJson<XtreamCategory[]>(apiUrl(s, 'get_vod_categories'), signal).catch(() => []),
-    fetchJson<XtreamCategory[]>(apiUrl(s, 'get_series_categories'), signal).catch(() => []),
-    fetchJson<XtreamLive[]>(apiUrl(s, 'get_live_streams'), signal).catch(() => []),
-    fetchJson<XtreamVod[]>(apiUrl(s, 'get_vod_streams'), signal).catch(() => []),
-    fetchJson<XtreamSeries[]>(apiUrl(s, 'get_series'), signal).catch(() => []),
-  ])
-
-  const live = (liveRaw ?? []).map((c) => ({ item: mapLive(s, c), cat: c.category_id }))
-  const vod = (vodRaw ?? []).map((v) => ({ item: mapVod(s, v), cat: v.category_id }))
-  const series = (seriesRaw ?? []).map((v) => ({ item: mapSeries(v), cat: v.category_id }))
-
-  const catOf = (pairs: { item: MediaItem; cat?: string }[]) => {
+/** Bouwt de Catalog uit de tot dusver geladen live/films/series (mag leeg zijn). */
+function assemble(s: XtreamSource, live: Pair[], vod: Pair[], series: Pair[], liveCats: XtreamCategory[], vodCats: XtreamCategory[], seriesCats: XtreamCategory[]): Catalog | null {
+  const catOf = (pairs: Pair[]) => {
     const m = new Map<string, string | undefined>()
     for (const p of pairs) m.set(p.item.id, p.cat)
     return (item: MediaItem) => m.get(item.id)
   }
-
-  const liveRows = buildRows(liveCats ?? [], live.map((p) => p.item), catOf(live), notices, 'Live TV')
-  const vodRows = buildRows(vodCats ?? [], vod.map((p) => p.item), catOf(vod), notices, 'Films')
-  const seriesRows = buildRows(seriesCats ?? [], series.map((p) => p.item), catOf(series), notices, 'Series')
+  const liveRows = buildRows(liveCats, live.map((p) => p.item), catOf(live))
+  const vodRows = buildRows(vodCats, vod.map((p) => p.item), catOf(vod))
+  const seriesRows = buildRows(seriesCats, series.map((p) => p.item), catOf(series))
 
   const sections = []
-  // Home: een greep uit elk type.
   const homeRows: ContentRowData[] = []
   if (vodRows[0]) homeRows.push({ ...vodRows[0], id: 'home-films', title: 'Films — uitgelicht' })
   if (seriesRows[0]) homeRows.push({ ...seriesRows[0], id: 'home-series', title: 'Series — uitgelicht' })
@@ -400,12 +361,8 @@ export async function loadXtreamCatalog(s: XtreamSource, signal?: AbortSignal): 
   if (liveRows.length) sections.push({ key: 'live', label: 'Live TV', rows: liveRows })
   if (vodRows.length) sections.push({ key: 'films', label: 'Films', rows: vodRows })
   if (seriesRows.length) sections.push({ key: 'series', label: 'Series', rows: seriesRows })
+  if (sections.length === 0) return null
 
-  if (sections.length === 0) {
-    throw new Error('Xtream-account geladen, maar geen content gevonden.')
-  }
-
-  // Hero: liefst een serie/film mét beeld en omschrijving.
   const hero =
     series.find((p) => p.item.backdrop && p.item.synopsis)?.item ??
     vod.find((p) => p.item.poster)?.item ??
@@ -416,8 +373,60 @@ export async function loadXtreamCatalog(s: XtreamSource, signal?: AbortSignal): 
     hero,
     sourceLabel: `Xtream · ${s.host}`,
     epgUrl: xmltvUrl(s),
-    // Volledige (ongekapte) lijst voor zoeken — al opgehaald, alleen niet allemaal getoond.
     allItems: [...live, ...vod, ...series].map((p) => p.item),
-    notices: notices.length ? notices : undefined,
   }
+}
+
+export async function loadXtreamCatalog(
+  s: XtreamSource,
+  signal?: AbortSignal,
+  onPartial?: (partial: Catalog) => void,
+): Promise<Catalog> {
+  // Verifieer eerst de inloggegevens via de account-info (geen action).
+  const account = await fetchJson<{ user_info?: { auth?: number; message?: string } }>(apiUrl(s), signal)
+  if (account.user_info && account.user_info.auth === 0) {
+    throw new Error(account.user_info.message || 'Xtream-login geweigerd (controleer gegevens).')
+  }
+
+  // Categorieën eerst (klein). Daarna de drie grote stream-lijsten parallel; we tonen
+  // elke sectie zodra hij binnen is i.p.v. te wachten op de volledige download.
+  const [liveCats, vodCats, seriesCats] = await Promise.all([
+    fetchJson<XtreamCategory[]>(apiUrl(s, 'get_live_categories'), signal).catch(() => []),
+    fetchJson<XtreamCategory[]>(apiUrl(s, 'get_vod_categories'), signal).catch(() => []),
+    fetchJson<XtreamCategory[]>(apiUrl(s, 'get_series_categories'), signal).catch(() => []),
+  ])
+
+  let live: Pair[] = []
+  let vod: Pair[] = []
+  let series: Pair[] = []
+  const emit = () => {
+    if (!onPartial) return
+    const partial = assemble(s, live, vod, series, liveCats ?? [], vodCats ?? [], seriesCats ?? [])
+    if (partial) onPartial(partial)
+  }
+
+  const liveP = fetchJson<XtreamLive[]>(apiUrl(s, 'get_live_streams'), signal)
+    .then((raw) => {
+      live = (raw ?? []).map((c) => ({ item: mapLive(s, c), cat: c.category_id }))
+      emit()
+    })
+    .catch(() => {})
+  const vodP = fetchJson<XtreamVod[]>(apiUrl(s, 'get_vod_streams'), signal)
+    .then((raw) => {
+      vod = (raw ?? []).map((v) => ({ item: mapVod(s, v), cat: v.category_id }))
+      emit()
+    })
+    .catch(() => {})
+  const seriesP = fetchJson<XtreamSeries[]>(apiUrl(s, 'get_series'), signal)
+    .then((raw) => {
+      series = (raw ?? []).map((v) => ({ item: mapSeries(v), cat: v.category_id }))
+      emit()
+    })
+    .catch(() => {})
+
+  await Promise.all([liveP, vodP, seriesP])
+
+  const full = assemble(s, live, vod, series, liveCats ?? [], vodCats ?? [], seriesCats ?? [])
+  if (!full) throw new Error('Xtream-account geladen, maar geen content gevonden.')
+  return full
 }
