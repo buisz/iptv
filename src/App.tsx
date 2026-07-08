@@ -331,7 +331,18 @@ export default function App() {
             <LiveBrowser
               categories={activeSection?.rows ?? []}
               favorites={liveFavorites}
+              source={source}
               onOpen={openItem}
+              onPlay={(item) =>
+                setPlaying({
+                  title: item.title,
+                  url: item.streamUrl,
+                  kind: item.kind,
+                  id: item.id,
+                  poster: item.poster,
+                  backdrop: item.backdrop,
+                })
+              }
               onFavoriteChange={() => setCwVersion((v) => v + 1)}
             />
           </div>

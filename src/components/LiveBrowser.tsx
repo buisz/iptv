@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ContentRowData, MediaItem } from '../types/content'
+import type { Source } from '../types/source'
 import PosterCard from './PosterCard'
+import GuideView from './GuideView'
 import { useT } from '../i18n'
 
 /**
@@ -17,9 +19,14 @@ import { useT } from '../i18n'
 interface LiveBrowserProps {
   categories: ContentRowData[]
   favorites: MediaItem[]
+  source: Source
   onOpen: (item: MediaItem) => void
+  onPlay: (item: MediaItem) => void
   onFavoriteChange?: () => void
 }
+
+type LiveView = 'guide' | 'grid'
+const VIEW_KEY = 'buisz.liveView'
 
 const FAV_ID = '__favorites'
 
@@ -43,9 +50,31 @@ function useColumns(): number {
   return cols
 }
 
-export default function LiveBrowser({ categories, favorites, onOpen, onFavoriteChange }: LiveBrowserProps) {
+export default function LiveBrowser({
+  categories,
+  favorites,
+  source,
+  onOpen,
+  onPlay,
+  onFavoriteChange,
+}: LiveBrowserProps) {
   const t = useT()
   const cols = useColumns()
+  const [view, setView] = useState<LiveView>(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'guide'
+    } catch {
+      return 'guide'
+    }
+  })
+  function chooseView(v: LiveView) {
+    setView(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      /* negeren */
+    }
+  }
 
   const folders = useMemo(() => {
     const list = [...categories]
@@ -110,21 +139,51 @@ export default function LiveBrowser({ categories, favorites, onOpen, onFavoriteC
         })}
       </nav>
 
-      {/* Zender-grid van de gekozen map */}
+      {/* Inhoud van de gekozen map: gids (tijdlijn) of grid */}
       <div className="min-w-0 flex-1">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-          {selected.items.map((item, i) => (
-            <PosterCard
-              key={`${selected.id}-${item.id}-${i}`}
-              item={item}
-              row={Math.floor(i / cols)}
-              col={i % cols}
-              fill
-              onOpen={onOpen}
-              onFavoriteChange={onFavoriteChange}
-            />
-          ))}
+        {/* Weergave-schakelaar */}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="truncate text-base font-bold text-mist">{selected.title}</h2>
+          <div className="flex shrink-0 gap-1 rounded-full bg-white/[0.05] p-1">
+            {(['guide', 'grid'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => chooseView(v)}
+                aria-pressed={view === v}
+                className={[
+                  'rounded-full px-3 py-1 text-xs font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-buisgroen',
+                  view === v ? 'bg-buisgroen text-antraciet-900' : 'text-mist-400 hover:text-mist',
+                ].join(' ')}
+              >
+                {v === 'guide' ? t('live.guide') : t('live.grid')}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {view === 'guide' ? (
+          <GuideView
+            key={selected.id}
+            channels={selected.items}
+            source={source}
+            onPlay={onPlay}
+            onFavoriteChange={onFavoriteChange}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            {selected.items.map((item, i) => (
+              <PosterCard
+                key={`${selected.id}-${item.id}-${i}`}
+                item={item}
+                row={Math.floor(i / cols)}
+                col={i % cols}
+                fill
+                onOpen={onOpen}
+                onFavoriteChange={onFavoriteChange}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
