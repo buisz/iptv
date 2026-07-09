@@ -18,6 +18,62 @@
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // zonder I/O/0/1
 const SESSION_TTL = 300 // seconden
 
+/**
+ * SSRF-/relay-bescherming voor /proxy. Cloudflare blokkeert egress naar private
+ * IP's al, maar we sluiten bovendien onveilige schema's en interne hostnamen uit en
+ * ondersteunen een optionele allowlist via `env.ALLOWED_HOSTS` (komma-gescheiden).
+ * Stel die in wanneer je de Worker publiek host, zodat hij geen open relay is.
+ */
+function guardTarget(target, env) {
+  let u
+  try {
+    u = new URL(target)
+  } catch {
+    return 'ongeldige URL'
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return 'alleen http/https'
+  const host = u.hostname.toLowerCase()
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host === '::1' ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  ) {
+    return 'interne host geblokkeerd'
+  }
+  const allow = (env?.ALLOWED_HOSTS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+  if (allow.length && !allow.some((h) => host === h || host.endsWith('.' + h))) {
+    return 'host niet in allowlist'
+  }
+  return null
+}
+
+/** Fetch die de target én elke redirect-hop opnieuw tegen guardTarget toetst. */
+async function safeFetch(target, options, env, maxRedirects = 5) {
+  let current = target
+  for (let i = 0; i <= maxRedirects; i++) {
+    const reason = guardTarget(current, env)
+    if (reason) throw new Error(reason)
+    const res = await fetch(current, { ...options, redirect: 'manual' })
+    const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
+    if (loc) {
+      current = new URL(loc, current).toString()
+      continue
+    }
+    return res
+  }
+  throw new Error('te veel redirects')
+}
+
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET,POST,OPTIONS',
@@ -121,7 +177,12 @@ export default {
       const headers = new Headers({ 'User-Agent': isStream ? STREAM_UA : BROWSER_UA })
       const range = request.headers.get('range')
       if (range) headers.set('range', range)
-      const upstream = await fetch(target, { headers, redirect: 'follow' })
+      let upstream
+      try {
+        upstream = await safeFetch(target, { headers }, env)
+      } catch (err) {
+        return new Response(`Verzoek geweigerd of mislukt: ${err.message}`, { status: 502, headers: CORS })
+      }
       const contentType = upstream.headers.get('content-type')
 
       // HLS-manifest: herschrijf de URI's naar absoluut, zodat de speler ze

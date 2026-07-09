@@ -4,6 +4,7 @@ import legacy from '@vitejs/plugin-legacy'
 import { Readable } from 'node:stream'
 import { BROWSER_UA, isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './server/m3u8.mjs'
 import { cacheGet, cacheSet, hostOf, ttlFor, withHostLimit } from './server/cache.mjs'
+import { redactUrl, safeFetch } from './server/guard.mjs'
 
 /**
  * Dev-proxy voor CORS.
@@ -45,9 +46,19 @@ function devProxy(): Plugin {
           // fetch achter een per-host limiet (backstop tegen bursts).
           const headers: Record<string, string> = { 'User-Agent': isStream ? STREAM_UA : BROWSER_UA }
           if (req.headers.range) headers['range'] = req.headers.range
-          const upstream = await withHostLimit(hostOf(target), () =>
-            fetch(target, { headers, redirect: 'follow' }),
-          )
+          let upstream: Response
+          try {
+            upstream = await withHostLimit(hostOf(target), () => safeFetch(target, { headers }))
+          } catch (err) {
+            console.warn(
+              `[buisz-proxy] geweigerd/mislukt: ${(err as Error).message}\n  URL: ${redactUrl(target)}`,
+            )
+            res.statusCode = 502
+            res.setHeader('content-type', 'text/plain; charset=utf-8')
+            res.setHeader('access-control-allow-origin', '*')
+            res.end(`Verzoek geweigerd of mislukt: ${(err as Error).message}`)
+            return
+          }
 
           res.statusCode = upstream.status
           const contentType = upstream.headers.get('content-type')
@@ -70,7 +81,7 @@ function devProxy(): Plugin {
             const snippet = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
             console.warn(
               `[buisz-proxy] stream gaf geen video: HTTP ${upstream.status} ` +
-                `${contentType || '(geen content-type)'}\n  URL: ${target}\n  Body: ${snippet || '(leeg)'}`,
+                `${contentType || '(geen content-type)'}\n  URL: ${redactUrl(target)}\n  Body: ${snippet || '(leeg)'}`,
             )
             res.statusCode = upstream.ok ? 502 : upstream.status
             res.setHeader('content-type', 'text/plain; charset=utf-8')

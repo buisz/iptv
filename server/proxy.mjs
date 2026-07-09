@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
 import { BROWSER_UA, isM3u8, looksLikeErrorPage, rewriteM3u8, STREAM_UA } from './m3u8.mjs'
 import { cacheGet, cacheSet, hostOf, ttlFor, withHostLimit } from './cache.mjs'
+import { redactUrl, safeFetch } from './guard.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'dist')
@@ -60,7 +61,18 @@ async function handleProxy(req, res, target, isStream = false) {
 
     const headers = { 'User-Agent': isStream ? STREAM_UA : BROWSER_UA }
     if (req.headers.range) headers['range'] = req.headers.range
-    const upstream = await withHostLimit(hostOf(target), () => fetch(target, { headers, redirect: 'follow' }))
+    let upstream
+    try {
+      upstream = await withHostLimit(hostOf(target), () => safeFetch(target, { headers }))
+    } catch (err) {
+      // Geblokkeerde/onveilige target (SSRF-guard) of netwerkfout.
+      console.warn(`[buisz-proxy] geweigerd/mislukt: ${err.message}\n  URL: ${redactUrl(target)}`)
+      res.statusCode = 502
+      res.setHeader('content-type', 'text/plain; charset=utf-8')
+      res.setHeader('access-control-allow-origin', '*')
+      res.end(`Verzoek geweigerd of mislukt: ${err.message}`)
+      return
+    }
 
     res.statusCode = upstream.status
     const contentType = upstream.headers.get('content-type')
@@ -82,7 +94,7 @@ async function handleProxy(req, res, target, isStream = false) {
       const snippet = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
       console.warn(
         `[buisz-proxy] stream gaf geen video: HTTP ${upstream.status} ` +
-          `${contentType || '(geen content-type)'}\n  URL: ${target}\n  Body: ${snippet || '(leeg)'}`,
+          `${contentType || '(geen content-type)'}\n  URL: ${redactUrl(target)}\n  Body: ${snippet || '(leeg)'}`,
       )
       res.statusCode = upstream.ok ? 502 : upstream.status
       res.setHeader('content-type', 'text/plain; charset=utf-8')
