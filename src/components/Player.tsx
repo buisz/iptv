@@ -92,35 +92,24 @@ export default function Player({ request, onClose }: PlayerProps) {
   // Chromecast (CAF) beschikbaar in deze browser? AirPlay (WebKit) beschikbaar?
   const [castAvailable, setCastAvailable] = useState(false)
   const [airplayAvailable, setAirplayAvailable] = useState(false)
-  // Eigen volume/mute (betrouwbaarder dan alleen de native controls; TV-remote-vriendelijk).
-  const [muted, setMuted] = useState(() => readBool('buisz.muted', false))
-  const [volume, setVolumeState] = useState(() => readNum('buisz.volume', 1))
-
-  function applyVolume(v: HTMLVideoElement) {
-    v.muted = muted
-    v.volume = volume
-  }
-  function toggleMute() {
-    setMuted((m) => !m)
-  }
-  function changeVolume(val: number) {
-    const clamped = Math.min(1, Math.max(0, val))
-    setVolumeState(clamped)
-    if (clamped > 0 && muted) setMuted(false)
-  }
-
-  // Volume/mute op het element toepassen + bewaren (ook bij bronwissel).
+  // Eén volumeregeling: de native <video controls>. We onthouden alleen de keuze —
+  // pas de opgeslagen waarde toe bij een nieuwe bron en bewaar native wijzigingen.
   useEffect(() => {
     const v = videoRef.current
-    if (v) applyVolume(v)
-    try {
-      localStorage.setItem('buisz.muted', muted ? '1' : '0')
-      localStorage.setItem('buisz.volume', String(volume))
-    } catch {
-      /* geen localStorage */
+    if (!v) return
+    v.volume = readNum('buisz.volume', 1)
+    v.muted = readBool('buisz.muted', false)
+    const onVol = () => {
+      try {
+        localStorage.setItem('buisz.volume', String(v.volume))
+        localStorage.setItem('buisz.muted', v.muted ? '1' : '0')
+      } catch {
+        /* geen localStorage */
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [muted, volume, request, status])
+    v.addEventListener('volumechange', onVol)
+    return () => v.removeEventListener('volumechange', onVol)
+  }, [request])
 
   // Chromecast — CAF Web Sender: alleen actief in echte Chrome-browsers.
   function castNow() {
@@ -446,36 +435,6 @@ export default function Player({ request, onClose }: PlayerProps) {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {request.url && status !== 'native' && (
-            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-2">
-              <button
-                onClick={toggleMute}
-                aria-label={muted || volume === 0 ? t('player.unmute') : t('player.mute')}
-                title={muted || volume === 0 ? t('player.unmute') : t('player.mute')}
-                className="grid h-11 w-9 place-items-center text-mist transition-colors hover:text-buisgroen focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-                  {muted || volume === 0 ? (
-                    <path d="M3.5 9v6h4l5 5V4l-5 5h-4zm13.7-.2 1.4 1.4L16.4 12l2.2 2.2-1.4 1.4L15 13.4l-2.2 2.2-1.4-1.4L13.6 12l-2.2-2.2 1.4-1.4L15 10.6l2.2-1.8z" />
-                  ) : volume < 0.5 ? (
-                    <path d="M3.5 9v6h4l5 5V4l-5 5h-4zm12 .2a3.5 3.5 0 0 1 0 5.6l-1.1-1.3a1.8 1.8 0 0 0 0-3l1.1-1.3z" />
-                  ) : (
-                    <path d="M3.5 9v6h4l5 5V4l-5 5h-4zm12 .2a3.5 3.5 0 0 1 0 5.6l-1.1-1.3a1.8 1.8 0 0 0 0-3l1.1-1.3zM17 6.3A6.5 6.5 0 0 1 17 17.7l-1.1-1.3a4.7 4.7 0 0 0 0-9.8L17 6.3z" />
-                  )}
-                </svg>
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={muted ? 0 : volume}
-                onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                aria-label={t('player.volume')}
-                className="hidden h-1 w-20 cursor-pointer accent-buisgroen sm:block"
-              />
-            </div>
-          )}
           {request.url && airplayAvailable && (
             <button
               onClick={airplayNow}
@@ -523,10 +482,12 @@ export default function Player({ request, onClose }: PlayerProps) {
           playsInline
         />
 
-        {(status === 'loading' || status === 'native') && (
+        {/* Eén laad-ring: in de browser toont <video> zijn eigen buffer-spinner, dus
+            onze ring alleen voor de native (Capacitor) speler — geen dubbele cirkel. */}
+        {status === 'native' && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center gap-3 text-center">
-            <span className="h-12 w-12 animate-spin rounded-full border-[3px] border-white/20 border-t-buisgroen" />
-            {status === 'native' && <span className="text-sm text-mist-400">{t('player.native')}</span>}
+            <span className="h-12 w-12 animate-spin rounded-full border-2 border-buisgroen/25 border-t-buisgroen" />
+            <span className="text-sm text-mist-400">{t('player.native')}</span>
           </div>
         )}
 
