@@ -5,6 +5,7 @@ import { clearFavorites } from '../api/favorites'
 import { clearProgress } from '../api/progress'
 import { pairBase, setPairBase } from '../api/pairing'
 import { getBufferPreset, setBufferPreset, type BufferPreset } from '../api/player/buffering'
+import { getLiveView, setLiveView, type LiveView } from '../api/liveView'
 
 interface SettingsOverlayProps {
   open: boolean
@@ -29,6 +30,8 @@ const STORAGE_KEYS = [
   'buisz.tmdbKey',
   'buisz.lang',
   'buisz.buffer',
+  'buisz.liveView',
+  'buisz.epgCache',
 ]
 
 const BUFFER_PRESETS: { id: BufferPreset; labelKey: string }[] = [
@@ -97,6 +100,7 @@ export default function SettingsOverlay({
   const { lang, setLang, t } = useI18n()
   const [pair, setPair] = useState(pairBase())
   const [buffer, setBuffer] = useState<BufferPreset>(() => getBufferPreset())
+  const [liveView, setLiveViewState] = useState<LiveView>(() => getLiveView())
 
   useEffect(() => {
     if (!open) return
@@ -188,6 +192,30 @@ export default function SettingsOverlay({
             </div>
             <p className="border-t border-white/[0.06] px-4 py-3 text-xs leading-relaxed text-mist-400">
               {t(`settings.bufferHint.${buffer}`)}
+            </p>
+          </Section>
+
+          {/* Live TV-weergave */}
+          <Section title={t('settings.liveView')}>
+            <div className="flex gap-2 p-3">
+              {(['guide', 'grid'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setLiveViewState(v)
+                    setLiveView(v)
+                  }}
+                  className={[
+                    'flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-buisgroen',
+                    liveView === v ? 'bg-buisgroen text-antraciet-900' : 'bg-white/[0.04] text-mist-400 hover:text-mist',
+                  ].join(' ')}
+                >
+                  {v === 'guide' ? t('live.guide') : t('live.grid')}
+                </button>
+              ))}
+            </div>
+            <p className="border-t border-white/[0.06] px-4 py-3 text-xs leading-relaxed text-mist-400">
+              {t('settings.liveViewHint')}
             </p>
           </Section>
 

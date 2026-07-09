@@ -4,6 +4,7 @@ import type { Source } from '../types/source'
 import PosterCard from './PosterCard'
 import GuideGrid from './GuideGrid'
 import { pickNowNext, useLazyChannelEpg } from '../hooks/useLazyChannelEpg'
+import { getLiveView, setLiveView, type LiveView } from '../api/liveView'
 import { useT } from '../i18n'
 
 /**
@@ -25,9 +26,6 @@ interface LiveBrowserProps {
   onPlay: (item: MediaItem) => void
   onFavoriteChange?: () => void
 }
-
-type LiveView = 'guide' | 'grid'
-const VIEW_KEY = 'buisz.liveView'
 
 const FAV_ID = '__favorites'
 
@@ -88,20 +86,20 @@ export default function LiveBrowser({
 }: LiveBrowserProps) {
   const t = useT()
   const cols = useColumns()
-  const [view, setView] = useState<LiveView>(() => {
-    try {
-      return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'guide'
-    } catch {
-      return 'guide'
+  const [view, setView] = useState<LiveView>(getLiveView)
+  // Volg wijzigingen die elders zijn gemaakt (bijv. de voorkeur in Instellingen).
+  useEffect(() => {
+    const sync = () => setView(getLiveView())
+    window.addEventListener('buisz:liveView', sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener('buisz:liveView', sync)
+      window.removeEventListener('storage', sync)
     }
-  })
+  }, [])
   function chooseView(v: LiveView) {
     setView(v)
-    try {
-      localStorage.setItem(VIEW_KEY, v)
-    } catch {
-      /* negeren */
-    }
+    setLiveView(v)
   }
 
   const folders = useMemo(() => {
