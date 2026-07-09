@@ -53,7 +53,8 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
           {t('hero.featured')}
         </span>
 
-        <h1 className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-mist drop-shadow-sm animate-rise-in sm:text-6xl md:text-7xl">
+        {/* Max. 3 regels: een lange titel kan zo niet meer over de navbar heen groeien. */}
+        <h1 className="line-clamp-3 text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-mist drop-shadow-sm animate-rise-in sm:text-6xl md:text-7xl">
           {item.title}
         </h1>
 
@@ -67,7 +68,7 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
           <Meta item={item} />
         </div>
 
-        <p className="mt-4 max-w-xl text-balance text-sm leading-relaxed text-mist-400 animate-rise-in sm:text-base">
+        <p className="mt-4 line-clamp-2 max-w-xl text-balance text-sm leading-relaxed text-mist-400 animate-rise-in sm:text-base">
           {item.synopsis}
         </p>
 
