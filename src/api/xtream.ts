@@ -160,22 +160,28 @@ export async function loadShortEpg(
 
 /**
  * Sommige providers leveren via `get_short_epg` bijna-dubbele programma's: dezelfde
- * titel met een start die 1–2 minuten verschilt (bijv. 14:05–15:05 én 14:06–15:04),
+ * titel met licht verschoven tijden (bijv. 14:10–14:57, 14:15–15:00 én 14:20–15:00),
  * doordat ze twee EPG-bronnen samenvoegen. Zonder opschonen stapelen die op elkaar
- * in de gids. We voegen ze samen: gelijke titel binnen een paar minuten = één blok.
- * Invoer moet op start gesorteerd zijn.
+ * in de gids. Regel: **zelfde titel + overlappende tijd = één blok** (we rekken op
+ * tot de unie). Een marathon van dezelfde titel achter elkaar overlapt níet en
+ * blijft dus als losse blokken staan. Invoer moet op start gesorteerd zijn.
  */
-const DUP_WINDOW_MS = 5 * 60_000
 function dedupeEpg(list: EpgEntry[]): EpgEntry[] {
   const out: EpgEntry[] = []
+  // Per titel het laatst behouden blok, om ook door tussenliggende andere titels
+  // heen te ontdubbelen (bijv. A, kort nieuwsbulletin B, A' → A en A' samenvoegen).
+  const lastByTitle = new Map<string, EpgEntry>()
   for (const p of list) {
-    const prev = out[out.length - 1]
-    if (prev && normTitle(prev.title) === normTitle(p.title) && Math.abs(p.start - prev.start) < DUP_WINDOW_MS) {
-      // Duplicaat: houd het vroegste blok en rek de eindtijd op tot de langste van de twee.
+    const k = normTitle(p.title)
+    const prev = lastByTitle.get(k)
+    if (prev && p.start < prev.stop) {
+      // Overlap met eerder blok van dezelfde titel → samenvoegen (unie van de tijd).
       if (p.stop > prev.stop) prev.stop = p.stop
       continue
     }
-    out.push({ ...p })
+    const entry = { ...p }
+    out.push(entry)
+    lastByTitle.set(k, entry)
   }
   return out
 }
@@ -395,7 +401,7 @@ function assemble(s: XtreamSource, live: Pair[], vod: Pair[], series: Pair[], li
   if (liveRows[0]) homeRows.push({ ...liveRows[0], id: 'home-live', title: 'Live TV' })
   if (vodRows[1]) homeRows.push({ ...vodRows[1], id: 'home-films-2' })
   if (homeRows.length) sections.push({ key: 'home', label: 'Home', rows: homeRows })
-  if (liveRows.length) sections.push({ key: 'live', label: 'Live TV', rows: liveRows })
+  if (liveRows.length) sections.push({ key: 'live', label: 'TV', rows: liveRows })
   if (vodRows.length) sections.push({ key: 'films', label: 'Films', rows: vodRows })
   if (seriesRows.length) sections.push({ key: 'series', label: 'Series', rows: seriesRows })
   if (sections.length === 0) return null

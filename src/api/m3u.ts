@@ -168,7 +168,7 @@ export function playlistToCatalog(
   if (serieRows[0]) homeRows.push({ ...serieRows[0], id: 'home-series', title: 'Series' })
   if (liveRows[1]) homeRows.push({ ...liveRows[1], id: 'home-live-2' })
   if (homeRows.length) sections.push({ key: 'home', label: 'Home', rows: homeRows })
-  if (liveRows.length) sections.push({ key: 'live', label: 'Live TV', rows: liveRows })
+  if (liveRows.length) sections.push({ key: 'live', label: 'TV', rows: liveRows })
   if (filmRows.length) sections.push({ key: 'films', label: 'Films', rows: filmRows })
   if (serieRows.length) sections.push({ key: 'series', label: 'Series', rows: serieRows })
 

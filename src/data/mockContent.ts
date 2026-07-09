@@ -111,7 +111,7 @@ export const sections: CatalogSection[] = [
   },
   {
     key: 'live',
-    label: 'Live TV',
+    label: 'TV',
     rows: [
       { id: 'live-alle', title: 'Alle zenders', items: live },
       { id: 'live-sport', title: 'Sport', items: live.filter((c) => c.genres.includes('Sport')).concat(live.slice(0, 3)) },

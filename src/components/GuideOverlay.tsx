@@ -25,7 +25,7 @@ function ChannelRow({ ch, source, onOpen }: { ch: MediaItem; source: Source; onO
   const epg = useLazyChannelEpg(ref, ch, source)
   const now = Date.now()
   const { now: cur, next } = pickNowNext(epg, now)
-  const { src: logo, failed: logoFailed, onError: onLogoError } = useImgFallback(ch.poster || ch.backdrop)
+  const { src: logo, failed: logoFailed, onError: onLogoError } = useImgFallback(ch.poster || ch.backdrop, true)
   const fraction =
     cur && cur.stop > cur.start ? Math.min(1, Math.max(0, (now - cur.start) / (cur.stop - cur.start))) : 0
 

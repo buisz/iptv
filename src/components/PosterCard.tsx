@@ -20,7 +20,8 @@ export default function PosterCard({ item, row, col, showProgress, onOpen, onFav
   const [loaded, setLoaded] = useState(false)
   const [fav, setFav] = useState(() => isFavorite(item.id))
   const isLive = item.kind === 'live'
-  const { src, failed, onError } = useImgFallback(isLive ? item.backdrop : item.poster)
+  // Zender-logo's meteen via de proxy (flaky logo-hosts); TMDB-posters direct.
+  const { src, failed, onError } = useImgFallback(isLive ? item.backdrop : item.poster, isLive)
 
   function onStar(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation()

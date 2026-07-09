@@ -105,7 +105,7 @@ function GuideGridRow({ item, source, windowStart, windowEnd, timelineW, onPlay,
   const ref = useRef<HTMLDivElement>(null)
   const epg = useLazyChannelEpg(ref, item, source)
   const [fav, setFav] = useState(() => isFavorite(item.id))
-  const { src: logo, failed: logoFailed, onError: onLogoError } = useImgFallback(item.backdrop || item.poster)
+  const { src: logo, failed: logoFailed, onError: onLogoError } = useImgFallback(item.backdrop || item.poster, true)
   const now = Date.now()
 
   const blocks = (epg ?? [])

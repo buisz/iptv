@@ -76,9 +76,9 @@ const nl: Dict = {
     'Zo dicht mogelijk bij live — kan haperen op een onstabiele of trage verbinding.',
   'settings.bufferHint.smooth':
     'Grootste buffer: minste onderbrekingen, maar een paar seconden extra vertraging. Goed voor VPN/zwak netwerk. Let op: een buffer vangt jitter op, geen structureel tekort aan bandbreedte of een codec-probleem.',
-  'settings.liveView': 'Standaard Live TV-weergave',
+  'settings.liveView': 'Standaard TV-weergave',
   'settings.liveViewHint':
-    'Bepaalt waarmee Live TV opent: de tijdlijn-gids of het zender-grid. Je kunt in Live TV altijd nog wisselen; die keuze wordt hier onthouden.',
+    'Bepaalt waarmee TV opent: de tijdlijn-gids of het zender-grid. Je kunt in TV altijd nog wisselen; die keuze wordt hier onthouden.',
   'settings.source': 'Bron',
   'settings.sourceManage': 'Bron beheren',
   'settings.sourceManageHint': 'Bekijk of pas je huidige bron aan.',
@@ -156,9 +156,9 @@ const en: Dict = {
     'As close to live as possible — may stall on an unstable or slow connection.',
   'settings.bufferHint.smooth':
     'Largest buffer: fewest interruptions, but a few seconds of extra delay. Good for VPN/weak networks. Note: a buffer absorbs jitter, not a genuine bandwidth shortfall or a codec problem.',
-  'settings.liveView': 'Default Live TV view',
+  'settings.liveView': 'Default TV view',
   'settings.liveViewHint':
-    'Sets what Live TV opens with: the timeline guide or the channel grid. You can still switch inside Live TV; that choice is remembered here.',
+    'Sets what TV opens with: the timeline guide or the channel grid. You can still switch inside TV; that choice is remembered here.',
   'settings.source': 'Source',
   'settings.sourceManage': 'Manage source',
   'settings.sourceManageHint': 'View or edit your current source.',
