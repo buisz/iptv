@@ -396,6 +396,7 @@ export default function App() {
       <GuideOverlay
         open={guideOpen}
         channels={liveChannels}
+        source={source}
         onClose={() => setGuideOpen(false)}
         onOpen={(item) => {
           setGuideOpen(false)

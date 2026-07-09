@@ -11,6 +11,7 @@ import type { Catalog, ContentRowData, EpgEntry, MediaItem } from '../types/cont
 import type { XtreamSource, LiveFormatPreset } from '../types/source'
 import { fetchJson } from './proxy'
 import { normalizeCodec, qualityFromName, resFromHeight } from './quality'
+import { getCachedEpg, setCachedEpg } from './epgCache'
 
 // ── Ruwe Xtream-vormen (defensief getypeerd; providers wijken af). ──
 interface XtreamCategory {
@@ -120,15 +121,10 @@ function decodeB64(s?: string): string {
   }
 }
 
-// Sessiecache per (host+stream) zodat tegels/gids niet telkens opnieuw ophalen
-// (voorkomt provider-throttling / 429 bij grote mappen).
-const shortEpgCache = new Map<string, { at: number; list: EpgEntry[] }>()
-const SHORT_EPG_TTL = 10 * 60_000
-
 /**
  * Betrouwbare per-kanaal-EPG via `get_short_epg` (de provider lost het op via
- * stream_id — geen id/naam-matching nodig). Gecachet per sessie. Basis voor
- * detail-nu/straks én de tijdlijn-weergave.
+ * stream_id — geen id/naam-matching nodig). Lokaal gecachet (localStorage, overleeft
+ * reloads). Basis voor detail-nu/straks én de tijdlijn-weergave.
  */
 export async function loadShortEpg(
   s: XtreamSource,
@@ -137,8 +133,8 @@ export async function loadShortEpg(
   signal?: AbortSignal,
 ): Promise<EpgEntry[]> {
   const key = `${s.host}:${s.username}:${streamId}`
-  const cached = shortEpgCache.get(key)
-  if (cached && Date.now() - cached.at < SHORT_EPG_TTL) return cached.list
+  const cached = getCachedEpg(key)
+  if (cached) return cached
 
   const data = await fetchJson<{ epg_listings?: XtreamShortEpgItem[] }>(
     apiUrl(s, 'get_short_epg', { stream_id: streamId, limit }),
@@ -157,7 +153,7 @@ export async function loadShortEpg(
     })
   }
   out.sort((a, b) => a.start - b.start)
-  shortEpgCache.set(key, { at: Date.now(), list: out })
+  setCachedEpg(key, out)
   return out
 }
 

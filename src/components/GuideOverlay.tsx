@@ -1,35 +1,39 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 import type { MediaItem } from '../types/content'
+import type { Source } from '../types/source'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
+import { useLazyChannelEpg, pickNowNext } from '../hooks/useLazyChannelEpg'
+import { useImgFallback } from '../hooks/useImgFallback'
+import { clock } from '../lib/time'
 import { useT } from '../i18n'
 
 interface GuideOverlayProps {
   open: boolean
   channels: MediaItem[]
+  source: Source
   onClose: () => void
   onOpen: (item: MediaItem) => void
 }
 
-function clock(ms: number): string {
-  return new Date(ms).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-}
-
-function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (i: MediaItem) => void }) {
+function ChannelRow({ ch, source, onOpen }: { ch: MediaItem; source: Source; onOpen: (i: MediaItem) => void }) {
   const t = useT()
-  const cur = ch.epgNow
-  const next = ch.epgNext
+  const ref = useRef<HTMLButtonElement>(null)
+  const epg = useLazyChannelEpg(ref, ch, source)
+  const now = Date.now()
+  const { now: cur, next } = pickNowNext(epg, now)
+  const { src: logo, failed: logoFailed, onError: onLogoError } = useImgFallback(ch.poster || ch.backdrop)
   const fraction =
     cur && cur.stop > cur.start ? Math.min(1, Math.max(0, (now - cur.start) / (cur.stop - cur.start))) : 0
 
   return (
     <button
+      ref={ref}
       onClick={() => onOpen(ch)}
       className="flex w-full items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-left transition-colors hover:border-buisgroen/40 hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
     >
-      {/* Zender-merk/logo */}
       <span className="grid h-12 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-antraciet-700 ring-1 ring-white/10">
-        {ch.poster ? (
-          <img src={ch.poster} alt="" className="h-full w-full object-cover" />
+        {logo && !logoFailed ? (
+          <img src={logo} alt="" loading="lazy" onError={onLogoError} className="h-full w-full object-contain" />
         ) : (
           <span className="text-xs font-extrabold text-buisgroen">{ch.channelBadge ?? ch.title.slice(0, 3)}</span>
         )}
@@ -45,7 +49,9 @@ function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (
           )}
         </span>
 
-        {cur ? (
+        {epg === null ? (
+          <span className="mt-1 block h-3 w-40 animate-pulse-soft rounded bg-white/[0.06]" />
+        ) : cur ? (
           <>
             <span className="mt-1 flex items-baseline justify-between gap-3">
               <span className="truncate text-xs text-mist-400">
@@ -65,16 +71,14 @@ function ChannelRow({ ch, now, onOpen }: { ch: MediaItem; now: number; onOpen: (
             )}
           </>
         ) : (
-          <span className="mt-1 block text-xs text-mist-300">
-            {ch.tagline || t('guide.noInfo')}
-          </span>
+          <span className="mt-1 block text-xs text-mist-300">{ch.tagline || t('guide.noInfo')}</span>
         )}
       </span>
     </button>
   )
 }
 
-export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideOverlayProps) {
+export default function GuideOverlay({ open, channels, source, onClose, onOpen }: GuideOverlayProps) {
   const t = useT()
   useEffect(() => {
     if (!open) return
@@ -89,10 +93,6 @@ export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideO
     }
   }, [open, onClose])
 
-  // Eén tijdstip voor alle voortgangsbalken (stabiel binnen één render).
-  const now = useMemo(() => Date.now(), [open])
-  const hasEpg = useMemo(() => channels.some((c) => c.epgNow), [channels])
-
   if (!open) return null
 
   return (
@@ -100,10 +100,7 @@ export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideO
       <div className="edge-x flex items-center justify-between gap-3 border-b border-white/[0.06] py-4">
         <div>
           <h2 className="text-lg font-bold text-mist">{t('guide.title')}</h2>
-          <p className="text-xs text-mist-400">
-            {t('guide.channels', { n: channels.length })}
-            {hasEpg ? '' : t('guide.needEpg')}
-          </p>
+          <p className="text-xs text-mist-400">{t('guide.channels', { n: channels.length })}</p>
         </div>
         <button
           onClick={onClose}
@@ -122,7 +119,7 @@ export default function GuideOverlay({ open, channels, onClose, onOpen }: GuideO
         ) : (
           <div className="edge-x grid gap-2.5 sm:grid-cols-2">
             {channels.map((ch, i) => (
-              <ChannelRow key={`${ch.id}-${i}`} ch={ch} now={now} onOpen={onOpen} />
+              <ChannelRow key={`${ch.id}-${i}`} ch={ch} source={source} onOpen={onOpen} />
             ))}
           </div>
         )}
