@@ -17,15 +17,23 @@
 import { useEffect, useState } from 'react'
 import type { QualityHint } from '../types/content'
 
+/** Per codec: kan het apparaat het decoden, en gebeurt dat energiezuinig (≈ hardware)? */
+export interface CodecCap {
+  supported: boolean
+  /** `powerEfficient` uit MediaCapabilities — software-decoding is supported maar niet
+   * efficiënt en kan op zwakke apparaten haperen. */
+  efficient: boolean
+}
+
 export interface DeviceProfile {
   /** H.264/AVC — vrijwel elk apparaat ondersteunt dit in hardware. */
-  h264: boolean
+  h264: CodecCap
   /** HEVC/H.265 op 1080p. */
-  hevc: boolean
+  hevc: CodecCap
   /** HEVC/H.265 op 4K (2160p). */
-  hevc4k: boolean
+  hevc4k: CodecCap
   /** AV1. */
-  av1: boolean
+  av1: CodecCap
   /** Of de detectie überhaupt kon draaien (anders: alles onbekend → niet waarschuwen). */
   detected: boolean
 }
@@ -38,7 +46,7 @@ const PROBES = {
   av1: { contentType: 'video/mp4; codecs="av01.0.05M.08"', width: 1920, height: 1080 },
 } as const
 
-async function probe(p: { contentType: string; width: number; height: number }): Promise<boolean> {
+async function probe(p: { contentType: string; width: number; height: number }): Promise<CodecCap> {
   const mc = (navigator as Navigator & { mediaCapabilities?: MediaCapabilities }).mediaCapabilities
   if (mc?.decodingInfo) {
     try {
@@ -52,30 +60,32 @@ async function probe(p: { contentType: string; width: number; height: number }):
           framerate: 30,
         },
       })
-      // Eis ondersteuning; "smooth" pakken we mee als sterk signaal maar niet als harde eis,
-      // want sommige (oudere) implementaties zetten smooth conservatief op false.
-      return info.supported
+      // `powerEfficient` onderscheidt hardware- van software-decoding: supported maar
+      // niet efficiënt = CPU-decode dat op zwakke apparaten kan haperen.
+      return { supported: info.supported, efficient: info.supported && info.powerEfficient }
     } catch {
       /* val terug op isTypeSupported */
     }
   }
-  // Fallback: MediaSource.isTypeSupported (grover, geen resolutie-onderscheid).
+  // Fallback: MediaSource.isTypeSupported (grover; geen efficiëntie-signaal → aanname zuinig).
   const MS = (window as unknown as { MediaSource?: { isTypeSupported(t: string): boolean } }).MediaSource
   if (MS?.isTypeSupported) {
     try {
-      return MS.isTypeSupported(p.contentType)
+      const ok = MS.isTypeSupported(p.contentType)
+      return { supported: ok, efficient: ok }
     } catch {
       /* niets */
     }
   }
-  return false
+  return { supported: false, efficient: false }
 }
 
 let cached: DeviceProfile | null = null
 let inflight: Promise<DeviceProfile> | null = null
 const listeners = new Set<(p: DeviceProfile) => void>()
 
-const UNKNOWN: DeviceProfile = { h264: false, hevc: false, hevc4k: false, av1: false, detected: false }
+const NOCAP: CodecCap = { supported: false, efficient: false }
+const UNKNOWN: DeviceProfile = { h264: NOCAP, hevc: NOCAP, hevc4k: NOCAP, av1: NOCAP, detected: false }
 
 async function runDetection(): Promise<DeviceProfile> {
   const hasMC = !!(navigator as Navigator & { mediaCapabilities?: unknown }).mediaCapabilities
@@ -146,30 +156,34 @@ export function playability(quality: QualityHint | undefined, profile: DevicePro
   const wants4k = quality.res === '4k'
   const codec = quality.codec
 
+  // Supported + energiezuinig (hardware) → ok; supported maar niet efficiënt
+  // (software-decode) → maybe (kan haperen op zwakke apparaten).
+  const grade = (c: CodecCap): Playability => (c.supported ? (c.efficient ? 'ok' : 'maybe') : 'no')
+
   // Zonder bekende codec kunnen we hooguit op resolutie iets zeggen, en dat is zwak:
   // een 4K-stream is meestal HEVC/AV1, dus als 4K-HEVC ontbreekt → "misschien niet".
   if (!codec) {
-    if (wants4k && !profile.hevc4k && !profile.av1) return 'maybe'
+    if (wants4k && !profile.hevc4k.supported && !profile.av1.supported) return 'maybe'
     return 'unknown'
   }
 
   if (codec === 'h264') {
     // Vrijwel universeel; alleen 4K-H.264 kan een zwakke 1080p-decoder te veel zijn.
-    if (wants4k && !profile.h264) return 'maybe'
-    return profile.h264 ? 'ok' : 'maybe'
+    if (wants4k && !profile.h264.efficient) return 'maybe'
+    return profile.h264.supported ? grade(profile.h264) : 'maybe'
   }
 
   if (codec === 'hevc') {
     if (wants4k) {
-      if (profile.hevc4k) return 'ok'
-      if (profile.hevc) return 'maybe' // 1080p-HEVC kan, 4K mogelijk niet
+      if (profile.hevc4k.supported) return grade(profile.hevc4k)
+      if (profile.hevc.supported) return 'maybe' // 1080p-HEVC kan, 4K mogelijk niet
       return 'no'
     }
-    return profile.hevc ? 'ok' : 'no'
+    return grade(profile.hevc)
   }
 
   if (codec === 'av1') {
-    if (profile.av1) return wants4k ? 'maybe' : 'ok'
+    if (profile.av1.supported) return wants4k ? 'maybe' : grade(profile.av1)
     return 'no'
   }
 
@@ -184,11 +198,11 @@ export function playabilityReason(p: Playability, quality?: QualityHint): string
   switch (p) {
     case 'no':
       return label
-        ? `Dit apparaat kan ${label} waarschijnlijk niet hardware-decoden.`
+        ? `Dit apparaat kan ${label} waarschijnlijk niet afspelen.`
         : 'Dit apparaat kan deze codec waarschijnlijk niet afspelen.'
     case 'maybe':
       return label
-        ? `${label} kan haperen of niet werken op dit apparaat.`
+        ? `${label} decodet mogelijk via software en kan haperen op dit apparaat.`
         : 'Deze stream kan haperen op dit apparaat.'
     case 'ok':
       return label ? `${label} speelt af op dit apparaat.` : 'Speelt af op dit apparaat.'

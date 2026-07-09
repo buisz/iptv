@@ -7,6 +7,7 @@ import { clearHistory } from '../api/history'
 import { pairBase, setPairBase } from '../api/pairing'
 import { getBufferPreset, setBufferPreset, type BufferPreset } from '../api/player/buffering'
 import { getLiveView, setLiveView, type LiveView } from '../api/liveView'
+import { nativeVideoAvailable } from '../api/player/nativeVideo'
 import { describeSource } from '../types/source'
 import type { SavedSource } from '../api/sources'
 
@@ -212,6 +213,11 @@ export default function SettingsOverlay({
             <p className="border-t border-white/[0.06] px-4 py-3 text-xs leading-relaxed text-mist-400">
               {t(`settings.bufferHint.${buffer}`)}
             </p>
+            {nativeVideoAvailable() && (
+              <p className="border-t border-white/[0.06] px-4 py-3 text-xs leading-relaxed text-mist-300">
+                {t('settings.bufferNativeNote')}
+              </p>
+            )}
           </Section>
 
           {/* Live TV-weergave */}

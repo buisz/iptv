@@ -79,6 +79,8 @@ const nl: Dict = {
     'Zo dicht mogelijk bij live — kan haperen op een onstabiele of trage verbinding.',
   'settings.bufferHint.smooth':
     'Grootste buffer: minste onderbrekingen, maar een paar seconden extra vertraging. Goed voor VPN/zwak netwerk. Let op: een buffer vangt jitter op, geen structureel tekort aan bandbreedte of een codec-probleem.',
+  'settings.bufferNativeNote':
+    'In de app (TV/telefoon) regelt de systeemspeler de buffering automatisch; deze keuze geldt voor de webspeler.',
   'settings.liveView': 'Standaard TV-weergave',
   'settings.liveViewHint':
     'Bepaalt waarmee TV opent: de tijdlijn-gids of het zender-grid. Je kunt in TV altijd nog wisselen; die keuze wordt hier onthouden.',
@@ -171,6 +173,8 @@ const en: Dict = {
     'As close to live as possible — may stall on an unstable or slow connection.',
   'settings.bufferHint.smooth':
     'Largest buffer: fewest interruptions, but a few seconds of extra delay. Good for VPN/weak networks. Note: a buffer absorbs jitter, not a genuine bandwidth shortfall or a codec problem.',
+  'settings.bufferNativeNote':
+    'In the app (TV/phone) the system player manages buffering automatically; this choice applies to the web player.',
   'settings.liveView': 'Default TV view',
   'settings.liveViewHint':
     'Sets what TV opens with: the timeline guide or the channel grid. You can still switch inside TV; that choice is remembered here.',

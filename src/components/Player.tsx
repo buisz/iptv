@@ -296,18 +296,48 @@ export default function Player({ request, onClose }: PlayerProps) {
             const hls = new Hls({ enableWorker: true, loader: ProxyLoader as never, ...hlsConfig(profile) })
             hls.loadSource(url!)
             hls.attachMedia(video!)
+            // Op een jitterige (VPN-)lijn is een eerste fatale fout vaak herstelbaar.
+            // Probeer één keer te herstellen vóór we de fout-overlay tonen.
+            let netRecovered = false
+            let mediaRecovered = false
+            // Stall-/buffer-details zijn géén codec-probleem (ondanks MEDIA_ERROR).
+            const STALL = new Set([
+              'bufferStalledError',
+              'bufferNudgeOnStall',
+              'bufferSeekOverHole',
+              'bufferAppendError',
+            ])
             hls.on(Hls.Events.ERROR, (_e, data) => {
               if (!data.fatal) return
               const status = (data.response as { code?: number } | undefined)?.code
               const tech = `hls.js ${data.type} · ${data.details}${status ? ` · HTTP ${status}` : ''}`
-              if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                fail(codecHint('HLS'), 'codec', tech)
-              } else if (status && status >= 400 && status !== 502 && status !== 504) {
-                fail(httpHint(status), httpCategory(status), tech)
-              } else {
-                // Geen provider-status (of onze proxy-502/504) → netwerklaag.
-                fail(networkBase, 'network', tech)
+              const hardHttp = status && status >= 400 && status !== 502 && status !== 504
+
+              if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                if (!hardHttp && !netRecovered) {
+                  netRecovered = true
+                  hls.startLoad() // opnieuw laden i.p.v. meteen opgeven
+                  return
+                }
+                if (hardHttp) fail(httpHint(status!), httpCategory(status!), tech)
+                else fail(networkBase, 'network', tech)
+                return
               }
+
+              if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                if (!mediaRecovered) {
+                  mediaRecovered = true
+                  hls.recoverMediaError()
+                  return
+                }
+                // Na een mislukte recovery: stall = netwerk, anders pas echt codec.
+                if (STALL.has(data.details)) fail(networkBase, 'network', tech)
+                else fail(codecHint('HLS'), 'codec', tech)
+                return
+              }
+
+              // Overige fatale typen → netwerklaag.
+              fail(networkBase, 'network', tech)
             })
             cleanupRef.current = () => hls.destroy()
             return
