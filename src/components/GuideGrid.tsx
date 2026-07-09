@@ -4,6 +4,7 @@ import type { Source } from '../types/source'
 import { isFavorite, toggleFavorite } from '../api/favorites'
 import { useLazyChannelEpg } from '../hooks/useLazyChannelEpg'
 import { useImgFallback } from '../hooks/useImgFallback'
+import HScrollbar from './HScrollbar'
 import { clock, fmtTime } from '../lib/time'
 
 /**
@@ -35,6 +36,7 @@ const GRID_BG: React.CSSProperties = {
 }
 
 export default function GuideGrid({ channels, source, onPlay, onFavoriteChange }: GuideGridProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
   const now = Date.now()
   const slotMs = SLOT_MIN * 60_000
   const windowStart = Math.floor(now / slotMs) * slotMs
@@ -46,7 +48,8 @@ export default function GuideGrid({ channels, source, onPlay, onFavoriteChange }
   for (let t = windowStart; t <= windowEnd; t += slotMs) marks.push(t)
 
   return (
-    <div className="grid-scroll relative rounded-xl border border-white/[0.06]" style={{ maxHeight: '72vh' }}>
+    <>
+    <div ref={scrollRef} className="grid-scroll relative rounded-xl border border-white/[0.06]" style={{ maxHeight: '72vh' }}>
       <div className="relative" style={{ width: CHANNEL_COL + timelineW }}>
         {/* Tijd-balk (sticky top) */}
         <div className="sticky top-0 z-20 flex bg-antraciet-800" style={{ height: HEADER_H }}>
@@ -88,6 +91,9 @@ export default function GuideGrid({ channels, source, onPlay, onFavoriteChange }
         ))}
       </div>
     </div>
+    {/* Altijd-zichtbaar, sleep-/klikbaar schuifje voor de tijd-as. */}
+    <HScrollbar targetRef={scrollRef} />
+    </>
   )
 }
 

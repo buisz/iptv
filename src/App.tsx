@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import NavBar from './components/NavBar'
 import HeroBanner from './components/HeroBanner'
 import ContentRow from './components/ContentRow'
+import LazyRow from './components/LazyRow'
 import LiveBrowser from './components/LiveBrowser'
 import DetailOverlay from './components/DetailOverlay'
 import SourceModal from './components/SourceModal'
@@ -363,13 +364,14 @@ export default function App() {
             style={{ gap: 'var(--row-gap)' }}
           >
             {rowsToRender.map((row, i) => (
-              <ContentRow
-                key={row.id}
-                row={row}
-                rowIndex={i}
-                onOpen={openItem}
-                onFavoriteChange={() => setCwVersion((v) => v + 1)}
-              />
+              <LazyRow key={row.id} minHeight={i < 2 ? 0 : 320}>
+                <ContentRow
+                  row={row}
+                  rowIndex={i}
+                  onOpen={openItem}
+                  onFavoriteChange={() => setCwVersion((v) => v + 1)}
+                />
+              </LazyRow>
             ))}
           </div>
         )}
