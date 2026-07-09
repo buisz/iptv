@@ -44,9 +44,12 @@ export function useLazyChannelEpg(
   useEffect(() => {
     if (!visible || epg) return
 
-    // XMLTV eerst (gratis, al gedownload): heeft dit kanaal al nu/straks, dan géén
-    // per-kanaal-call doen — dat scheelt bij providers waar de XMLTV goed matcht.
-    const fromXmltv = [item.epgNow, item.epgNext].filter(Boolean) as EpgEntry[]
+    // XMLTV eerst (gratis, al gedownload): heeft dit kanaal een programmering, dan
+    // géén per-kanaal-call doen. Gebruik de volledige `epgSchedule` (echte tijdlijn
+    // voor de Gids); val terug op alleen nu/straks als er geen volledige lijst is.
+    const fromXmltv = item.epgSchedule?.length
+      ? item.epgSchedule
+      : ([item.epgNow, item.epgNext].filter(Boolean) as EpgEntry[])
     if (fromXmltv.length) {
       setEpg(fromXmltv)
       return
@@ -68,7 +71,7 @@ export function useLazyChannelEpg(
 
     const tryFetch = async () => {
       try {
-        const list = await loadShortEpg(itemSource, streamId, 8)
+        const list = await loadShortEpg(itemSource, streamId, 20)
         // Succes (ook een lege lijst = provider heeft géén EPG) → definitief.
         if (!cancelled) setEpg(list)
       } catch {

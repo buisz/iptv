@@ -164,12 +164,16 @@ export function applyEpg(catalog: Catalog, index: EpgIndex, at: number, byName?:
 
   const enrich = (item: MediaItem): MediaItem => {
     if (item.kind !== 'live') return item
-    const { now, next } = nowNext(entriesFor(item), at)
-    if (!now && !next) return item
+    const schedule = entriesFor(item)
+    const { now, next } = nowNext(schedule, at)
+    if (!now && !next && !schedule?.length) return item
     return {
       ...item,
       epgNow: now,
       epgNext: next,
+      // Volledige programmering meegeven zodat de Gids een échte tijdlijn toont
+      // (niet slechts nu/straks) zónder extra API-calls. Referentie, geen kopie.
+      epgSchedule: schedule,
       tagline: now ? `Nu: ${now.title}` : item.tagline,
     }
   }

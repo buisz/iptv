@@ -423,16 +423,40 @@ export default function Player({ request, onClose }: PlayerProps) {
       setStatus('playing')
     }
     const onErr = () => {
-      // MediaError-code: 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED.
+      // MediaError-code: 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED. De <video> verbergt
+      // de HTTP-status, dus achterhalen we die eerst: een 401/403 is meestal een
+      // regioblokkade — géén container-/codec-probleem. Zo trekken we de melding
+      // gelijk met de live-zenders (die 401/403 al als toegang/geo classificeren).
       const code = video.error?.code
-      const tech = `HTMLMediaElement MediaError code ${code ?? '?'}${
+      const baseTech = `HTMLMediaElement MediaError code ${code ?? '?'}${
         video.error?.message ? ` · ${video.error.message}` : ''
       }`
-      const m = url ? url.match(/\.(mkv|avi|wmv|flv)(\?|$)/i) : null
-      if (m) fail(containerHint(m[1].toUpperCase()), 'container', tech)
-      else if (code === 3 || code === 4) fail(codecHint('stream'), 'codec', tech)
-      else if (code === 2) fail(networkBase, 'network', tech)
-      else fail('Deze stream speelt niet af in de browser.', 'unknown', tech)
+      const container = url ? url.match(/\.(mkv|avi|wmv|flv)(\?|$)/i) : null
+
+      const classify = async () => {
+        let status = 0
+        if (url) {
+          try {
+            const res = await fetch(proxied(url, { stream: true }), { headers: { range: 'bytes=0-1' } })
+            status = res.status
+            try {
+              await res.body?.cancel()
+            } catch {
+              /* body sluiten mag falen */
+            }
+          } catch {
+            /* probe mislukt → val terug op de code-heuristiek */
+          }
+        }
+        if (cancelled) return
+        const tech = status ? `${baseTech} · HTTP ${status}` : baseTech
+        if (status >= 400) fail(httpHint(status), httpCategory(status), tech)
+        else if (container) fail(containerHint(container[1].toUpperCase()), 'container', tech)
+        else if (code === 3 || code === 4) fail(codecHint('stream'), 'codec', tech)
+        else if (code === 2) fail(networkBase, 'network', tech)
+        else fail('Deze stream speelt niet af in de browser.', 'unknown', tech)
+      }
+      void classify()
     }
     video.addEventListener('playing', onPlaying)
     video.addEventListener('error', onErr)
@@ -628,14 +652,21 @@ function codecHint(what: string): string {
 
 /** Server gaf een foutstatus terug (login/limiet/offline) — géén CORS. */
 function httpHint(status: number): string {
+  if (status === 401 || status === 403) {
+    // Account is doorgaans geldig (catalogus laadde), dus 401/403 op een specifieke
+    // stream is meestal een regioblokkade of een verbindingslimiet — niet je login.
+    return (
+      `De server antwoordde met HTTP ${status} (toegang geweigerd). Dit is géén CORS-probleem. ` +
+      `Meestal is dit een regioblokkade — met een VPN in het land van je provider speelt dit vaak wél — ` +
+      `of je gebruikt te veel gelijktijdige verbindingen. Controleer eventueel ook je account.`
+    )
+  }
   const reason =
-    status === 401 || status === 403
-      ? 'inloggegevens geweigerd'
-      : status === 404
-        ? 'zender niet gevonden'
-        : status === 512 || status === 509
-          ? 'account of max. verbindingen bereikt'
-          : 'server weigerde de stream'
+    status === 404
+      ? 'zender niet gevonden'
+      : status === 512 || status === 509
+        ? 'account of max. verbindingen bereikt'
+        : 'server weigerde de stream'
   return (
     `De server antwoordde met HTTP ${status} (${reason}). Dit is géén CORS-probleem. ` +
     `Controleer je account, of het kanaal nog bestaat, en of je niet te veel gelijktijdige verbindingen gebruikt.`
