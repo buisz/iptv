@@ -8,6 +8,23 @@ Legenda severity → prioriteit: **P0** = correctheid/privacy/security-blocker �
 **P1** = hoge impact (perf/kwaliteit) · **P2** = middel · **P3** = laag/nice-to-have.
 Dimensie-tags: [layout] [player] [security] [perf] [arch].
 
+## Opgepakt in deze ronde ✅
+- **P0-1/P0-2** reset-sleutels + fouttolerante merge (`Promise.allSettled`).
+- **P0-3** proxy-hardening: SSRF-guard (private/loopback/link-local/metadata + na
+  redirects), host-allowlist (env), credential-redactie in logs — Node én Worker.
+- **P1-1** virtualisatie van de Live-grid én GuideGrid.
+- **P1-2** player: `powerEfficient` in de afspeelbaarheid, hls.js-recovery +
+  correcte stall-vs-codec-classificatie; native buffer-note (echte native-wiring =
+  follow-up, plugin/native-wijziging).
+- **P1-3** legacy-CSS-fallbacks (aspect-ratio, clamp, flex-gap) voor Chromium 38–79.
+- **P1-4/P1-5** merge-dedupe alleen live; `allItems` bron-bewust ontdubbeld.
+- **P3-1** merge-voorkeur uit bij terugval naar 1 bron.
+
+**Resteert (niet in deze ronde):** P1-6 (catalogus-clone + React.memo), P1-7
+(EPG-cache-grootte/queue-cap — deels verlicht door virtualisatie), en de P2/P3-lijst
+hieronder (o.a. GuideGrid D-pad, i18n van foutteksten, XMLTV-parse naar Web Worker,
+focus-ring mobiele tabs). Echte native buffer-controle vergt een plugin/native-wijziging.
+
 ---
 
 ## P0 — eerst oppakken (correctheid / privacy / security)
