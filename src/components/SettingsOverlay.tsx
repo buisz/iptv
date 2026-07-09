@@ -193,7 +193,7 @@ export default function SettingsOverlay({
 
           {/* Bron */}
           <Section title={t('settings.source')}>
-            <Row label={sourceLabel} onClick={onManageSource} />
+            <Row label={t('settings.sourceManage')} hint={sourceLabel} onClick={onManageSource} />
             <Row label={t('settings.restartWizard')} hint={t('settings.restartWizardHint')} onClick={onRestartWizard} />
           </Section>
 

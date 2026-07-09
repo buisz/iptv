@@ -9,6 +9,8 @@ interface SourceModalProps {
   busy: boolean
   error: string | null
   currentKind: Source['kind']
+  /** Actieve bron om de velden mee voor te vullen (bewerken i.p.v. opnieuw invoeren). */
+  initial?: Source | null
   onClose: () => void
   onApply: (source: Source) => void
   onPair?: () => void
@@ -58,6 +60,7 @@ export default function SourceModal({
   busy,
   error,
   currentKind,
+  initial,
   onClose,
   onApply,
   onPair,
@@ -86,9 +89,35 @@ export default function SourceModal({
   // TMDB
   const [tmdb, setTmdb] = useState('')
 
+  /** Velden vullen vanuit de actieve bron (bewerken). */
+  function prefill(src: Source | null | undefined) {
+    if (!src) return
+    if (src.kind === 'xtream') {
+      setTab('xtream')
+      setHost(src.host)
+      setXport(src.port ? String(src.port) : '')
+      setSecure(!!src.secure)
+      setUser(src.username)
+      setPass(src.password)
+      setLiveFormat(src.liveFormat ?? 'ts')
+      if (src.liveTemplate) setLiveTemplate(src.liveTemplate)
+    } else if (src.kind === 'm3u-url') {
+      setTab('m3u-url')
+      setM3uUrl(src.url)
+      setEpgUrl(src.epgUrl ?? '')
+    } else if (src.kind === 'm3u-text') {
+      setTab('m3u-text')
+      setFileText(src.text)
+      setFileName(src.name ?? '')
+    }
+  }
+
+  const editing = !!initial && initial.kind !== 'demo'
+
   useEffect(() => {
     if (!open) return
     setTmdb(getTmdbKey() ?? '')
+    prefill(initial)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -154,8 +183,12 @@ export default function SourceModal({
       >
         <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
           <div>
-            <h2 className="text-lg font-bold text-mist">Bron toevoegen</h2>
-            <p className="text-xs text-mist-300">Laad je eigen legale playlist of Xtream-account.</p>
+            <h2 className="text-lg font-bold text-mist">{editing ? 'Bron beheren' : 'Bron toevoegen'}</h2>
+            <p className="text-xs text-mist-300">
+              {editing
+                ? 'Bekijk of pas je huidige bron aan en laad opnieuw.'
+                : 'Laad je eigen legale playlist of Xtream-account.'}
+            </p>
           </div>
           <button
             onClick={onClose}

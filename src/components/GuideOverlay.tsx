@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '../types/content'
 import type { Source } from '../types/source'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { useLazyChannelEpg, pickNowNext } from '../hooks/useLazyChannelEpg'
 import { useImgFallback } from '../hooks/useImgFallback'
+import { useVirtualRows } from '../hooks/useVirtualRows'
 import { clock } from '../lib/time'
 import { useT } from '../i18n'
 
@@ -14,6 +15,9 @@ interface GuideOverlayProps {
   onClose: () => void
   onOpen: (item: MediaItem) => void
 }
+
+/** Hoogte van één rij (kaart + gap) — moet kloppen met de opmaak voor de virtualisatie. */
+const ROW_H = 96
 
 function ChannelRow({ ch, source, onOpen }: { ch: MediaItem; source: Source; onOpen: (i: MediaItem) => void }) {
   const t = useT()
@@ -29,7 +33,8 @@ function ChannelRow({ ch, source, onOpen }: { ch: MediaItem; source: Source; onO
     <button
       ref={ref}
       onClick={() => onOpen(ch)}
-      className="flex w-full items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-left transition-colors hover:border-buisgroen/40 hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+      style={{ height: ROW_H - 10 }}
+      className="flex w-full items-center gap-4 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-left transition-colors hover:border-buisgroen/40 hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
     >
       <span className="grid h-12 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-antraciet-700 ring-1 ring-white/10">
         {logo && !logoFailed ? (
@@ -80,6 +85,9 @@ function ChannelRow({ ch, source, onOpen }: { ch: MediaItem; source: Source; onO
 
 export default function GuideOverlay({ open, channels, source, onClose, onOpen }: GuideOverlayProps) {
   const t = useT()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [columns, setColumns] = useState(1)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -93,7 +101,26 @@ export default function GuideOverlay({ open, channels, source, onClose, onOpen }
     }
   }, [open, onClose])
 
+  // Kolommen volgen de `sm`-breakpoint (Tailwind: 640px) — moet matchen met sm:grid-cols-2.
+  useEffect(() => {
+    if (!open) return
+    const mq = window.matchMedia('(min-width: 640px)')
+    const apply = () => setColumns(mq.matches ? 2 : 1)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [open])
+
+  const { start, end, totalHeight, offsetTop } = useVirtualRows(scrollRef, {
+    count: channels.length,
+    rowHeight: ROW_H,
+    columns,
+    overscan: 3,
+  })
+
   if (!open) return null
+
+  const visible = channels.slice(start, end)
 
   return (
     <div className="fixed inset-0 z-[75] flex flex-col bg-antraciet-900/95 backdrop-blur-md animate-fade-in">
@@ -113,14 +140,19 @@ export default function GuideOverlay({ open, channels, source, onClose, onOpen }
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-5">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto py-5">
         {channels.length === 0 ? (
           <p className="edge-x text-sm text-mist-400">{t('guide.noChannels')}</p>
         ) : (
-          <div className="edge-x grid gap-2.5 sm:grid-cols-2">
-            {channels.map((ch, i) => (
-              <ChannelRow key={`${ch.id}-${i}`} ch={ch} source={source} onOpen={onOpen} />
-            ))}
+          <div className="edge-x" style={{ height: totalHeight, position: 'relative' }}>
+            <div
+              className="grid gap-2.5 sm:grid-cols-2"
+              style={{ position: 'absolute', top: offsetTop, left: 0, right: 0 }}
+            >
+              {visible.map((ch, i) => (
+                <ChannelRow key={`${ch.id}-${start + i}`} ch={ch} source={source} onOpen={onOpen} />
+              ))}
+            </div>
           </div>
         )}
       </div>

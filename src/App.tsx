@@ -473,6 +473,7 @@ export default function App() {
         busy={loading}
         error={error}
         currentKind={source.kind}
+        initial={source}
         onClose={() => setSourceOpen(false)}
         onApply={applySource}
         onPair={() => setPairOpen(true)}
