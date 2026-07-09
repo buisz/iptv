@@ -368,6 +368,8 @@ export default function App() {
                 <ContentRow
                   row={row}
                   rowIndex={i}
+                  source={source}
+                  showCount={!isHome}
                   onOpen={openItem}
                   onFavoriteChange={() => setCwVersion((v) => v + 1)}
                 />

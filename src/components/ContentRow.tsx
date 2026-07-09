@@ -1,16 +1,22 @@
 import { useRef } from 'react'
 import type { ContentRowData, MediaItem } from '../types/content'
+import type { Source } from '../types/source'
 import PosterCard from './PosterCard'
+import LiveTile from './LiveTile'
 
 interface ContentRowProps {
   row: ContentRowData
   /** Globale rij-index voor spatial navigation. */
   rowIndex: number
+  /** Actieve bron — nodig om voor live-tegels de EPG (nu/straks) lui te laden. */
+  source?: Source
+  /** Toon het aantal items rechts (nuttig in mappen; op Home juist ruis). */
+  showCount?: boolean
   onOpen: (item: MediaItem) => void
   onFavoriteChange?: () => void
 }
 
-export default function ContentRow({ row, rowIndex, onOpen, onFavoriteChange }: ContentRowProps) {
+export default function ContentRow({ row, rowIndex, source, showCount, onOpen, onFavoriteChange }: ContentRowProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   function nudge(dir: 1 | -1) {
@@ -25,7 +31,7 @@ export default function ContentRow({ row, rowIndex, onOpen, onFavoriteChange }: 
         <h2 id={`row-${row.id}`} className="text-base font-bold tracking-tight text-mist sm:text-lg">
           {row.title}
         </h2>
-        <span className="text-xs font-medium text-mist-300">{row.items.length}</span>
+        {showCount && <span className="text-xs font-medium text-mist-300">{row.items.length}</span>}
       </div>
 
       <div className="relative">
@@ -44,17 +50,29 @@ export default function ContentRow({ row, rowIndex, onOpen, onFavoriteChange }: 
           ref={scrollerRef}
           className="row-scroll edge-x flex gap-3 overflow-x-auto scroll-px-[var(--edge)] pb-2 pt-1 sm:gap-4"
         >
-          {row.items.map((item, col) => (
-            <PosterCard
-              key={`${row.id}-${item.id}-${col}`}
-              item={item}
-              row={rowIndex}
-              col={col}
-              showProgress={row.showProgress}
-              onOpen={onOpen}
-              onFavoriteChange={onFavoriteChange}
-            />
-          ))}
+          {row.items.map((item, col) =>
+            item.kind === 'live' && source ? (
+              <LiveTile
+                key={`${row.id}-${item.id}-${col}`}
+                item={item}
+                source={source}
+                row={rowIndex}
+                col={col}
+                onOpen={onOpen}
+                onFavoriteChange={onFavoriteChange}
+              />
+            ) : (
+              <PosterCard
+                key={`${row.id}-${item.id}-${col}`}
+                item={item}
+                row={rowIndex}
+                col={col}
+                showProgress={row.showProgress}
+                onOpen={onOpen}
+                onFavoriteChange={onFavoriteChange}
+              />
+            ),
+          )}
         </div>
 
         <button

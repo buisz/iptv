@@ -406,8 +406,12 @@ function assemble(s: XtreamSource, live: Pair[], vod: Pair[], series: Pair[], li
   if (seriesRows.length) sections.push({ key: 'series', label: 'Series', rows: seriesRows })
   if (sections.length === 0) return null
 
+  // Kies een hero mét achtergrondbeeld (backdrop) — anders blijft de banner leeg.
   const hero =
     series.find((p) => p.item.backdrop && p.item.synopsis)?.item ??
+    vod.find((p) => p.item.backdrop && p.item.synopsis)?.item ??
+    series.find((p) => p.item.backdrop)?.item ??
+    vod.find((p) => p.item.backdrop)?.item ??
     vod.find((p) => p.item.poster)?.item ??
     sections[0].rows[0].items[0]
 

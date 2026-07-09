@@ -36,8 +36,8 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
     <section className="relative h-[68vh] min-h-[480px] w-full">
       {/* Achtergrondbeeld */}
       <div className="absolute inset-0">
-        {item.backdrop ? (
-          <img src={item.backdrop} alt="" className="h-full w-full object-cover object-top" />
+        {item.backdrop || item.poster ? (
+          <img src={item.backdrop || item.poster} alt="" className="h-full w-full object-cover object-top" />
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-diepteal-600/50 via-antraciet-800 to-antraciet-900" />
         )}

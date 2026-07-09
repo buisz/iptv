@@ -176,7 +176,10 @@ export function playlistToCatalog(
     throw new Error('Playlist geladen, maar geen afspeelbare items gevonden.')
   }
 
+  // Kies een hero mét achtergrondbeeld (backdrop); val anders terug op poster.
   const hero =
+    movies.find((m) => m.backdrop) ??
+    series.find((s) => s.backdrop) ??
     movies.find((m) => m.poster) ??
     series.find((s) => s.poster) ??
     live.find((l) => l.poster) ??
