@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ContentRowData, MediaItem } from '../types/content'
 import type { Source } from '../types/source'
 import PosterCard from './PosterCard'
-import GuideView from './GuideView'
+import GuideGrid from './GuideGrid'
 import { pickNowNext, useLazyChannelEpg } from '../hooks/useLazyChannelEpg'
 import { useT } from '../i18n'
 
@@ -190,7 +190,7 @@ export default function LiveBrowser({
         </div>
 
         {view === 'guide' ? (
-          <GuideView
+          <GuideGrid
             key={selected.id}
             channels={selected.items}
             source={source}

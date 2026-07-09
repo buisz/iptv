@@ -5,6 +5,7 @@ import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { isFavorite, toggleFavorite } from '../api/favorites'
 import { useT } from '../i18n'
 import PlayabilityBadge from './PlayabilityBadge'
+import { clock as clockTime, fmtTime } from '../lib/time'
 
 interface DetailOverlayProps {
   item: MediaItem | null
@@ -18,10 +19,7 @@ const kindLabel: Record<MediaItem['kind'], string> = {
   series: 'Serie',
 }
 
-/** Tijdstip in ms → "HH:MM" (lokale tijd). */
-function clock(ms: number): string {
-  return new Date(ms).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-}
+const clock = clockTime
 
 export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayProps) {
   const t = useT()
@@ -234,8 +232,8 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
                       <ul className="max-h-64 divide-y divide-white/[0.06] overflow-y-auto rounded-xl border border-white/[0.06]">
                         {upcoming.map((p, i) => (
                           <li key={i} className="flex items-center gap-3 px-3 py-2">
-                            <span className="shrink-0 text-xs font-semibold tabular-nums text-mist-400">
-                              {clock(p.start)}
+                            <span className="shrink-0 text-xs font-semibold text-mist-400">
+                              {fmtTime(p.start, now)}
                             </span>
                             <span className="min-w-0 truncate text-sm text-mist">{p.title}</span>
                           </li>
