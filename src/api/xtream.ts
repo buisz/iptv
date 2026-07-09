@@ -134,7 +134,7 @@ export async function loadShortEpg(
 ): Promise<EpgEntry[]> {
   const key = `${s.host}:${s.username}:${streamId}`
   const cached = getCachedEpg(key)
-  if (cached) return cached
+  if (cached) return dedupeEpg(cached) // ook oude cache (van vóór de fix) opschonen
 
   const data = await fetchJson<{ epg_listings?: XtreamShortEpgItem[] }>(
     apiUrl(s, 'get_short_epg', { stream_id: streamId, limit }),
@@ -152,9 +152,36 @@ export async function loadShortEpg(
       stop: isFinite(stopRaw) ? stopRaw : start + 30 * 60_000,
     })
   }
-  out.sort((a, b) => a.start - b.start)
-  setCachedEpg(key, out)
+  out.sort((a, b) => a.start - b.start || a.stop - b.stop)
+  const clean = dedupeEpg(out)
+  setCachedEpg(key, clean)
+  return clean
+}
+
+/**
+ * Sommige providers leveren via `get_short_epg` bijna-dubbele programma's: dezelfde
+ * titel met een start die 1–2 minuten verschilt (bijv. 14:05–15:05 én 14:06–15:04),
+ * doordat ze twee EPG-bronnen samenvoegen. Zonder opschonen stapelen die op elkaar
+ * in de gids. We voegen ze samen: gelijke titel binnen een paar minuten = één blok.
+ * Invoer moet op start gesorteerd zijn.
+ */
+const DUP_WINDOW_MS = 5 * 60_000
+function dedupeEpg(list: EpgEntry[]): EpgEntry[] {
+  const out: EpgEntry[] = []
+  for (const p of list) {
+    const prev = out[out.length - 1]
+    if (prev && normTitle(prev.title) === normTitle(p.title) && Math.abs(p.start - prev.start) < DUP_WINDOW_MS) {
+      // Duplicaat: houd het vroegste blok en rek de eindtijd op tot de langste van de twee.
+      if (p.stop > prev.stop) prev.stop = p.stop
+      continue
+    }
+    out.push({ ...p })
+  }
   return out
+}
+
+function normTitle(t: string): string {
+  return t.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 export function seriesStreamUrl(s: XtreamSource, episodeId: string | number, ext = 'mp4'): string {

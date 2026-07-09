@@ -172,7 +172,11 @@ function GuideGridRow({ item, source, windowStart, windowEnd, timelineW, onPlay,
           blocks.map((p, i) => {
             const left = Math.max(0, ((p.start - windowStart) / 60_000) * PX_PER_MIN)
             const rightRaw = ((p.stop - windowStart) / 60_000) * PX_PER_MIN
-            const width = Math.max(3, Math.min(timelineW, rightRaw) - left)
+            // Nooit over het volgende blok heen tekenen — vangt residuele overlap in de
+            // brondata op zodat blokken niet stapelen.
+            const nextLeft =
+              i + 1 < blocks.length ? ((blocks[i + 1].start - windowStart) / 60_000) * PX_PER_MIN : Infinity
+            const width = Math.max(3, Math.min(timelineW, rightRaw, nextLeft) - left)
             const isNow = p.start <= now && now < p.stop
             return (
               <button
