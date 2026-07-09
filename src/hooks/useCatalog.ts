@@ -88,7 +88,8 @@ export function useCatalog(): UseCatalog {
     try {
       if (mergeOn) {
         // Samengevoegd: alle bronnen laden (met per-bron XMLTV-EPG), dan mergen.
-        const parts = await Promise.all(
+        // Fouttolerant: één onbereikbare/verlopen bron mag de rest niet neerhalen.
+        const settled = await Promise.allSettled(
           reals.map(async (saved) => {
             let cat = await loadCatalog(saved.source, controller?.signal)
             if (cat.epgUrl) {
@@ -102,8 +103,23 @@ export function useCatalog(): UseCatalog {
           }),
         )
         if (aborted()) return false
+        const parts = settled
+          .filter((r): r is PromiseFulfilledResult<{ saved: SavedSource; catalog: Catalog }> => r.status === 'fulfilled')
+          .map((r) => r.value)
+        const failed = reals.filter((_, i) => settled[i].status === 'rejected')
+
+        if (!parts.length) {
+          // Alle bronnen faalden → toon de fout i.p.v. een lege bibliotheek.
+          setError('Geen van de bronnen kon geladen worden.')
+          return false
+        }
         markCatalogLoaded()
-        setCatalog(mergeCatalogs(parts))
+        const merged = mergeCatalogs(parts)
+        if (failed.length) {
+          const note = `${failed.length} bron(nen) niet geladen: ${failed.map((s) => s.name).join(', ')}`
+          merged.notices = [...(merged.notices ?? []), note]
+        }
+        setCatalog(merged)
         setSourceState(reals[0].source) // representatief; items dragen hun eigen bron
         return true
       }

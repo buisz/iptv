@@ -18,11 +18,14 @@ function tag(item: MediaItem, saved: SavedSource): MediaItem {
   return { ...item, sourceId: item.sourceId ?? saved.id, sourceName: item.sourceName ?? saved.name }
 }
 
+/** Samenvoeg-sleutel. Alleen LIVE-kanalen ontdubbelen we op titel; VOD/series niet
+ * (een remake of NL/US-variant met dezelfde genormaliseerde titel is een ánder item). */
 function keyOf(item: MediaItem): string {
-  return item.kind + '::' + normName(item.title)
+  return item.kind === 'live' ? 'live::' + normName(item.title) : item.kind + '::' + item.sourceId + '::' + item.id
 }
 
-/** Ontdubbel binnen één (samengevoegde) rij: eerste wint, rest wordt alternatief. */
+/** Ontdubbel binnen één (samengevoegde) rij: eerste wint, rest wordt alternatief.
+ * VOD/series worden alleen op exacte (bron,id) ontdubbeld, dus feitelijk niets. */
 function dedupe(items: MediaItem[]): MediaItem[] {
   const byKey = new Map<string, MediaItem>()
   const out: MediaItem[] = []
@@ -35,8 +38,9 @@ function dedupe(items: MediaItem[]): MediaItem[] {
       out.push(copy)
       continue
     }
-    // Duplicaat uit een andere bron → als alternatief onthouden (niet nogmaals tonen).
-    if (prev.sourceId === it.sourceId) continue
+    // Zelfde bron+id → echt hetzelfde item, overslaan.
+    if (prev.sourceId === it.sourceId && prev.id === it.id) continue
+    // Live-kanaal uit een andere bron → als alternatief onthouden (niet nogmaals tonen).
     const alt: AltSource = {
       sourceId: it.sourceId!,
       sourceName: it.sourceName || '',
@@ -108,13 +112,17 @@ export function mergeCatalogs(parts: { saved: SavedSource; catalog: Catalog }[])
   if (films?.[1]) homeRows.push({ ...films[1], id: 'home-films-2' })
   if (homeRows.length) sections.unshift({ key: 'home', label: 'Home', rows: homeRows })
 
-  // 4) Volledige itemlijst (voor zoeken) + willekeurige hero met achtergrond.
+  // 4) Volledige itemlijst (voor zoeken/gids/hero) + willekeurige hero met achtergrond.
+  // Zelfde ontdubbeling als de rijen: live op genormaliseerde titel, VOD/series op
+  // (bron,id) — zo tonen gids en zoeken geen dubbele kanalen en botsen bron-lokale
+  // id's niet (Xtream-id's zijn niet uniek tussen bronnen).
   const allItems: MediaItem[] = []
   const seen = new Set<string>()
   for (const p of tagged) {
     for (const it of p.allItems) {
-      if (!seen.has(it.id)) {
-        seen.add(it.id)
+      const k = keyOf(it)
+      if (!seen.has(k)) {
+        seen.add(k)
         allItems.push(it)
       }
     }

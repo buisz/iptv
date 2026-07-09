@@ -33,6 +33,9 @@ const LANGS: { id: Lang; label: string }[] = [
 
 const STORAGE_KEYS = [
   'buisz.source',
+  'buisz.sources',
+  'buisz.activeSource',
+  'buisz.mergeSources',
   'buisz.onboarded',
   'buisz.progress',
   'buisz.history',

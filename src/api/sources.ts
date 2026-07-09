@@ -137,6 +137,9 @@ export function removeSavedSource(id: string): void {
     const first = read()[0]
     if (first) setActiveSourceId(first.id)
   }
+  // Samenvoegen is zinloos bij ≤1 bron; zet de voorkeur uit zodat hij niet later
+  // onverwacht weer aanspringt en de toggle niet uit de pas loopt met de status.
+  if (read().filter((s) => s.source.kind !== 'demo').length <= 1) setMergeEnabled(false)
 }
 
 export function renameSavedSource(id: string, name: string): void {
