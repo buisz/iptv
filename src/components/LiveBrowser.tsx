@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ContentRowData, MediaItem } from '../types/content'
 import type { Source } from '../types/source'
 import GuideGrid from './GuideGrid'
 import LiveTile from './LiveTile'
+import { useWindowVirtualRows } from '../hooks/useVirtualRows'
 import { getLiveView, setLiveView, type LiveView } from '../api/liveView'
 import { useT } from '../i18n'
 
@@ -91,6 +92,39 @@ export default function LiveBrowser({
 
   const selected = folders.find((f) => f.id === selectedId) ?? folders[0]
 
+  // Virtualisatie van het grid (scrollt met de pagina). Meet de gridbreedte om de
+  // tegel-/rijhoogte te bepalen (aspect-video), zodat we alleen zichtbare rijen renderen.
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [gridWidth, setGridWidth] = useState(0)
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const measure = () => setGridWidth(el.clientWidth)
+    measure()
+    let ro: ResizeObserver | undefined
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure)
+      ro.observe(el)
+    } else {
+      window.addEventListener('resize', measure)
+    }
+    return () => {
+      if (ro) ro.disconnect()
+      else window.removeEventListener('resize', measure)
+    }
+  }, [view, selectedId])
+
+  const gap = cols === 2 ? 12 : 16 // gap-3 op telefoon, gap-4 daarboven
+  const colWidth = gridWidth ? (gridWidth - gap * (cols - 1)) / cols : 0
+  const rowHeight = colWidth ? Math.round((colWidth * 9) / 16) + gap : 0 // aspect-video + rij-gap
+  const gridItems = selected?.items ?? []
+  const gridWin = useWindowVirtualRows(gridRef, {
+    count: gridItems.length,
+    rowHeight,
+    columns: cols,
+    overscan: 4,
+  })
+
   if (!folders.length) {
     return <p className="edge-x text-sm text-mist-400">Geen kanalen gevonden.</p>
   }
@@ -168,19 +202,28 @@ export default function LiveBrowser({
             onFavoriteChange={onFavoriteChange}
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-            {selected.items.map((item, i) => (
-              <LiveTile
-                key={`${selected.id}-${item.id}-${i}`}
-                item={item}
-                source={source}
-                row={Math.floor(i / cols)}
-                col={i % cols}
-                fill
-                onOpen={onOpen}
-                onFavoriteChange={onFavoriteChange}
-              />
-            ))}
+          // Gevirtualiseerd grid: spacer op ware hoogte, alleen zichtbare rijen in de DOM.
+          <div ref={gridRef} style={{ height: gridWin.totalHeight || undefined, position: 'relative' }}>
+            <div
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5"
+              style={{ position: 'absolute', top: gridWin.offsetTop, left: 0, right: 0 }}
+            >
+              {gridItems.slice(gridWin.start, gridWin.end).map((item, li) => {
+                const i = gridWin.start + li
+                return (
+                  <LiveTile
+                    key={`${selected.id}-${item.id}-${i}`}
+                    item={item}
+                    source={source}
+                    row={Math.floor(i / cols)}
+                    col={i % cols}
+                    fill
+                    onOpen={onOpen}
+                    onFavoriteChange={onFavoriteChange}
+                  />
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

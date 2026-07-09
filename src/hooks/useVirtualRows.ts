@@ -82,3 +82,57 @@ export function useVirtualRows(
 
   return { start, end, totalHeight, offsetTop }
 }
+
+/**
+ * Variant voor een lijst/grid die met de PAGINA meescrollt (geen eigen scroll-
+ * container), bijv. het Live-grid. Gebruikt window-scroll + de positie van de
+ * container in de viewport. `rowHeight` mag 0 zijn zolang nog niet gemeten is
+ * (dan renderen we niets extra's).
+ */
+export function useWindowVirtualRows(
+  containerRef: React.RefObject<HTMLElement>,
+  { count, rowHeight, columns = 1, overscan = 4 }: Options,
+): VirtualWindow {
+  // `tick` dwingt herberekening af bij scroll/resize; de meting zelf gebeurt hieronder.
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    let raf = 0
+    const onChange = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        setTick((n) => (n + 1) & 0xffff)
+      })
+    }
+    window.addEventListener('scroll', onChange, { passive: true })
+    window.addEventListener('resize', onChange)
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', onChange)
+      window.removeEventListener('resize', onChange)
+    }
+  }, [])
+
+  const rows = Math.ceil(count / Math.max(1, columns))
+  const totalHeight = rows * rowHeight
+
+  let firstRow = 0
+  // Nog niet gemeten (rowHeight 0): render slechts een handvol rijen i.p.v. alles,
+  // zodat de eerste render niet alsnog duizenden tegels bouwt.
+  let lastRow = rowHeight > 0 ? rows : Math.min(rows, overscan + 4)
+  const el = containerRef.current
+  if (el && rowHeight > 0 && typeof window !== 'undefined') {
+    const rect = el.getBoundingClientRect()
+    const topWithin = Math.max(0, -rect.top) // hoeveel van de container al voorbij de bovenrand is
+    firstRow = Math.max(0, Math.floor(topWithin / rowHeight) - overscan)
+    const visibleRows = Math.ceil(window.innerHeight / rowHeight) + overscan * 2
+    lastRow = Math.min(rows, firstRow + visibleRows)
+  }
+
+  const start = firstRow * columns
+  const end = Math.min(count, lastRow * columns)
+  const offsetTop = firstRow * rowHeight
+
+  return { start, end, totalHeight, offsetTop }
+}

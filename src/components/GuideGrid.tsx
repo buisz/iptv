@@ -4,6 +4,7 @@ import type { Source } from '../types/source'
 import { isFavorite, toggleFavorite } from '../api/favorites'
 import { useLazyChannelEpg } from '../hooks/useLazyChannelEpg'
 import { useImgFallback } from '../hooks/useImgFallback'
+import { useVirtualRows } from '../hooks/useVirtualRows'
 import HScrollbar from './HScrollbar'
 import { clock, fmtTime } from '../lib/time'
 
@@ -37,6 +38,14 @@ const GRID_BG: React.CSSProperties = {
 
 export default function GuideGrid({ channels, source, onPlay, onFavoriteChange }: GuideGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Verticale virtualisatie: alleen zichtbare rijen renderen (grote maps = duizenden
+  // kanalen → anders duizenden rijen + IntersectionObservers tegelijk).
+  const { start, end, totalHeight, offsetTop } = useVirtualRows(scrollRef, {
+    count: channels.length,
+    rowHeight: ROW_H,
+    columns: 1,
+    overscan: 6,
+  })
   const now = Date.now()
   const slotMs = SLOT_MIN * 60_000
   const windowStart = Math.floor(now / slotMs) * slotMs
@@ -76,19 +85,23 @@ export default function GuideGrid({ channels, source, onPlay, onFavoriteChange }
           style={{ left: CHANNEL_COL + nowX, top: HEADER_H, bottom: 0 }}
         />
 
-        {/* Kanaalrijen */}
-        {channels.map((item) => (
-          <GuideGridRow
-            key={item.id}
-            item={item}
-            source={source}
-            windowStart={windowStart}
-            windowEnd={windowEnd}
-            timelineW={timelineW}
-            onPlay={onPlay}
-            onFavoriteChange={onFavoriteChange}
-          />
-        ))}
+        {/* Kanaalrijen (gevirtualiseerd): spacer op ware hoogte, alleen zichtbare rijen. */}
+        <div style={{ height: totalHeight, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: offsetTop, left: 0, right: 0 }}>
+            {channels.slice(start, end).map((item) => (
+              <GuideGridRow
+                key={item.id}
+                item={item}
+                source={source}
+                windowStart={windowStart}
+                windowEnd={windowEnd}
+                timelineW={timelineW}
+                onPlay={onPlay}
+                onFavoriteChange={onFavoriteChange}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
     {/* Altijd-zichtbaar, sleep-/klikbaar schuifje voor de tijd-as. */}
