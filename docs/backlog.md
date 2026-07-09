@@ -47,6 +47,38 @@ get/set-modules te zetten zodat sync één plek raakt.
 
 ---
 
+## PBI-010 — Meerdere bronnen (m3u/Xtream) 🟡
+
+**Waarom.** Veel gebruikers hebben meer dan één provider. Nu is er één actieve bron
+(`buisz.source`).
+
+**Hoe doet de community het (research).**
+- **TiviMate (Premium):** meerdere playlists; standaard **wissel** je tussen
+  playlists (browse er één tegelijk), óf **samenvoegen** tot gebundelde categorieën
+  met "Hide Duplicates".
+- **IPTV Smarters:** elke provider is een apart **profiel/gebruiker**; je wisselt
+  door een profiel te kiezen.
+- Rode draad: een **bronbeheerder** met een lijst; wisselen als basis, samenvoegen
+  als optie mét duplicaat-onderdrukking.
+
+**Voorstel — gefaseerd (beide opties, zoals gevraagd).**
+- **Fase 1 — meerdere opgeslagen bronnen + snelle wisselaar.** `buisz.sources`
+  (array) + `activeSourceId`; de bronbalk/Instellingen krijgen een wisselaar. Eén
+  bron tegelijk actief → hergebruikt de hele huidige pijplijn (EPG/proxy/catalogus).
+  Laag risico.
+- **Fase 2 — optioneel samenvoegen.** Een "Combineer bronnen"-schakelaar die
+  catalogi samenvoegt tot gebundelde secties, met duplicaat-onderdrukking (op
+  genormaliseerde naam) en per-bron EPG/proxy-routing. Hoger risico (favorieten/
+  voortgang moeten bron-bewust worden; dedup-heuristiek).
+
+**Acceptatiecriteria (fase 1).**
+- [ ] Meerdere bronnen opslaan, benoemen, verwijderen.
+- [ ] Snel wisselen zonder de wizard (bronbalk + Instellingen).
+- [ ] Actieve bron onthouden; werkt op web/TV/telefoon/tablet.
+- [ ] Xtream-gegevens blijven lokaal (en versleuteld zodra Cloud Sync er is).
+
+---
+
 ## Techniek / kwaliteit
 
 ### PBI-002 — Virtualisatie van het Live TV-grid 🔵
