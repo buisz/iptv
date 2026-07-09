@@ -3,6 +3,7 @@ import { useI18n, type Lang } from '../i18n'
 import { lockScroll, unlockScroll } from '../lib/scrollLock'
 import { clearFavorites } from '../api/favorites'
 import { clearProgress } from '../api/progress'
+import { clearHistory } from '../api/history'
 import { pairBase, setPairBase } from '../api/pairing'
 import { getBufferPreset, setBufferPreset, type BufferPreset } from '../api/player/buffering'
 import { getLiveView, setLiveView, type LiveView } from '../api/liveView'
@@ -26,6 +27,7 @@ const STORAGE_KEYS = [
   'buisz.source',
   'buisz.onboarded',
   'buisz.progress',
+  'buisz.history',
   'buisz.favorites',
   'buisz.tmdbKey',
   'buisz.lang',
@@ -248,6 +250,7 @@ export default function SettingsOverlay({
               label={t('settings.clearHistory')}
               onClick={() => {
                 clearProgress()
+                clearHistory()
                 onChanged()
               }}
             />

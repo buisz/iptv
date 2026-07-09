@@ -10,6 +10,7 @@ import type { Catalog, ContentRowData, MediaItem, MediaKind } from '../types/con
 import type { M3uTextSource, M3uUrlSource } from '../types/source'
 import { fetchText } from './proxy'
 import { qualityFromName } from './quality'
+import { pickRandom } from '../lib/rand'
 
 export interface M3uTrack {
   name: string
@@ -176,13 +177,12 @@ export function playlistToCatalog(
     throw new Error('Playlist geladen, maar geen afspeelbare items gevonden.')
   }
 
-  // Kies een hero mét achtergrondbeeld (backdrop); val anders terug op poster.
+  // Kies elke sessie een willekeurige hero: bij voorkeur mét achtergrond, anders poster.
+  const pool = [...movies, ...series]
   const hero =
-    movies.find((m) => m.backdrop) ??
-    series.find((s) => s.backdrop) ??
-    movies.find((m) => m.poster) ??
-    series.find((s) => s.poster) ??
-    live.find((l) => l.poster) ??
+    pickRandom(pool.filter((i) => i.backdrop)) ??
+    pickRandom(pool.filter((i) => i.poster)) ??
+    pickRandom(live.filter((l) => l.poster)) ??
     sections[0].rows[0].items[0]
 
   return {

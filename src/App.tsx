@@ -20,6 +20,7 @@ import { enrichItem } from './api/tmdb'
 import { loadSeriesInfo, loadShortEpg, loadVodQuality } from './api/xtream'
 import { nowNext } from './api/epg'
 import { getContinueWatching } from './api/progress'
+import { recordWatch, getRecentlyWatched } from './api/history'
 import { getFavorites } from './api/favorites'
 import { useT } from './i18n'
 import type { ContentRowData } from './types/content'
@@ -99,12 +100,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLive, cwVersion, catalog])
 
-  const rowsToRender = useMemo(() => {
-    const base = activeSection?.rows ?? []
-    const extra = [continueRow, favoritesRow].filter(Boolean) as ContentRowData[]
-    return [...extra, ...base]
-  }, [activeSection, continueRow, favoritesRow])
-
   // Alle unieke items voor zoeken. Voorkeur: de volledige (ongekapte) bibliotheek
   // (catalog.allItems); anders afgeleid uit de zichtbare rijen (bijv. demobron).
   const allItems = useMemo(() => {
@@ -125,6 +120,26 @@ export default function App() {
   }, [sections, catalog.allItems])
 
   const liveChannels = useMemo(() => allItems.filter((i) => i.kind === 'live'), [allItems])
+
+  // "Onlangs bekeken" — kijkgeschiedenis (ook zenders). Verrijk met de volledige
+  // catalogus-items (voor EPG/afspeel-info); sla items over die al in "Verder
+  // kijken" staan om dubbelingen te voorkomen.
+  const recentRow: ContentRowData | null = useMemo(() => {
+    if (!isHome) return null
+    const contIds = new Set(continueRow?.items.map((i) => i.id))
+    const byId = new Map(allItems.map((i) => [i.id, i]))
+    const items = getRecentlyWatched()
+      .map((r) => byId.get(r.id) ?? r)
+      .filter((i) => !contIds.has(i.id))
+    return items.length ? { id: 'recent', title: t('row.recent'), items } : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHome, cwVersion, allItems, continueRow])
+
+  const rowsToRender = useMemo(() => {
+    const base = activeSection?.rows ?? []
+    const extra = [continueRow, recentRow, favoritesRow].filter(Boolean) as ContentRowData[]
+    return [...extra, ...base]
+  }, [activeSection, continueRow, recentRow, favoritesRow])
 
   // Houd de actieve sectie geldig wanneer de catalogus (bron) verandert.
   useEffect(() => {
@@ -184,6 +199,21 @@ export default function App() {
   function handleSelectSection(key: string) {
     setActiveKey(key)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  /** Start afspelen én leg het vast in "Onlangs bekeken" (ook live-zenders). */
+  function startPlay(req: PlayRequest) {
+    if (req.id) {
+      recordWatch({
+        id: req.id,
+        kind: req.kind,
+        title: req.title,
+        poster: req.poster,
+        backdrop: req.backdrop,
+        streamUrl: req.url,
+      })
+    }
+    setPlaying(req)
   }
 
   /** Opent het detail en verrijkt het item op de achtergrond (TMDB / series-info). */
@@ -306,14 +336,9 @@ export default function App() {
         {showHero ? (
           <HeroBanner item={catalog.hero} onOpen={openItem} />
         ) : (
-          <div className="edge-x pt-28 pb-2 sm:pt-32">
-            <h1 className="text-3xl font-extrabold tracking-tight text-mist sm:text-4xl">
-              {activeSection?.label}
-            </h1>
-            <p className="mt-1 text-sm text-mist-400">
-              {catalog.sourceLabel} · blader door je {activeSection?.label.toLowerCase()}.
-            </p>
-          </div>
+          // Netflix-stijl: geen grote sectiekop — de gemarkeerde menuknop is de
+          // indicator, de bron staat al in de balk. Alleen ruimte onder de navbar.
+          <div className="pt-24 sm:pt-28" aria-hidden />
         )}
 
         {/* Meldingen (afgekapte rijen e.d.) */}
@@ -346,7 +371,7 @@ export default function App() {
               source={source}
               onOpen={openItem}
               onPlay={(item) =>
-                setPlaying({
+                startPlay({
                   title: item.title,
                   url: item.streamUrl,
                   kind: item.kind,
@@ -414,7 +439,7 @@ export default function App() {
           setSelected(null)
           setCwVersion((v) => v + 1) // "Mijn lijst" verversen na favoriet-wijziging
         }}
-        onPlay={setPlaying}
+        onPlay={startPlay}
       />
 
       <Player

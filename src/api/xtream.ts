@@ -12,6 +12,7 @@ import type { XtreamSource, LiveFormatPreset } from '../types/source'
 import { fetchJson } from './proxy'
 import { normalizeCodec, qualityFromName, resFromHeight } from './quality'
 import { getCachedEpg, setCachedEpg } from './epgCache'
+import { pickRandom } from '../lib/rand'
 
 // ── Ruwe Xtream-vormen (defensief getypeerd; providers wijken af). ──
 interface XtreamCategory {
@@ -383,6 +384,30 @@ export function episodeStreamUrl(
 
 type Pair = { item: MediaItem; cat?: string }
 
+/**
+ * Willekeurige "Uitgelicht" per sessie. `assemble` draait meerdere keren tijdens het
+ * progressief laden; zonder vergrendeling zou de hero telkens opnieuw loten en
+ * flikkeren. We vergrendelen daarom zodra er een goede hero (mét achtergrond) is en
+ * hergebruiken die zolang hij in de catalogus zit. Bij bronwissel valt het oude id
+ * weg → nieuwe loting.
+ */
+let sessionHeroId: string | undefined
+function pickHero(all: MediaItem[], sections: { rows: ContentRowData[] }[]): MediaItem {
+  if (sessionHeroId) {
+    const kept = all.find((i) => i.id === sessionHeroId)
+    if (kept) return kept
+  }
+  const rich = all.filter((i) => i.backdrop && i.synopsis)
+  const withBackdrop = all.filter((i) => i.backdrop)
+  const good = pickRandom(rich) ?? pickRandom(withBackdrop)
+  if (good) {
+    sessionHeroId = good.id // vergrendel op een echte hero
+    return good
+  }
+  // Nog geen achtergrond geladen: tentatief (niet vergrendelen) zodat we later upgraden.
+  return pickRandom(all.filter((i) => i.poster)) ?? sections[0].rows[0].items[0]
+}
+
 /** Bouwt de Catalog uit de tot dusver geladen live/films/series (mag leeg zijn). */
 function assemble(s: XtreamSource, live: Pair[], vod: Pair[], series: Pair[], liveCats: XtreamCategory[], vodCats: XtreamCategory[], seriesCats: XtreamCategory[]): Catalog | null {
   const catOf = (pairs: Pair[]) => {
@@ -406,14 +431,7 @@ function assemble(s: XtreamSource, live: Pair[], vod: Pair[], series: Pair[], li
   if (seriesRows.length) sections.push({ key: 'series', label: 'Series', rows: seriesRows })
   if (sections.length === 0) return null
 
-  // Kies een hero mét achtergrondbeeld (backdrop) — anders blijft de banner leeg.
-  const hero =
-    series.find((p) => p.item.backdrop && p.item.synopsis)?.item ??
-    vod.find((p) => p.item.backdrop && p.item.synopsis)?.item ??
-    series.find((p) => p.item.backdrop)?.item ??
-    vod.find((p) => p.item.backdrop)?.item ??
-    vod.find((p) => p.item.poster)?.item ??
-    sections[0].rows[0].items[0]
+  const hero = pickHero([...series, ...vod].map((p) => p.item), sections)
 
   return {
     sections,
