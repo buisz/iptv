@@ -29,9 +29,17 @@
   --text-muted: var(--buisz-mist-400);
   --accent: var(--buisz-groen);
 
-  /* Ritme */
+  /* Ritme — statische fallback eerst (oude TV-engines kennen clamp() niet: dan zou
+     de hele declaratie ongeldig zijn en --edge/--row-gap wegvallen). */
   --radius-card: 14px;
   --radius-lg: 22px;
-  --row-gap: clamp(2rem, 4vw, 3.25rem);
-  --edge: clamp(1rem, 5vw, 4rem);
+  --row-gap: 2.5rem;
+  --edge: 1.5rem;
+}
+
+@supports (width: clamp(1rem, 1vw, 2rem)) {
+  :root {
+    --row-gap: clamp(2rem, 4vw, 3.25rem);
+    --edge: clamp(1rem, 5vw, 4rem);
+  }
 }
