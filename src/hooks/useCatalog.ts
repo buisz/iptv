@@ -5,87 +5,121 @@ import { DEMO_SOURCE } from '../types/source'
 import { demoCatalog, loadCatalog } from '../api/catalog'
 import { loadAndApplyEpg } from '../api/epg'
 import { markCatalogLoaded, resetHealth } from '../api/health'
-
-const STORAGE_KEY = 'buisz.source'
-
-function readStoredSource(): Source {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEMO_SOURCE
-    const parsed = JSON.parse(raw) as Source
-    return parsed?.kind ? parsed : DEMO_SOURCE
-  } catch {
-    return DEMO_SOURCE
-  }
-}
-
-function storeSource(source: Source): void {
-  try {
-    if (source.kind === 'demo') localStorage.removeItem(STORAGE_KEY)
-    else localStorage.setItem(STORAGE_KEY, JSON.stringify(source))
-  } catch {
-    /* localStorage niet beschikbaar — bron blijft alleen in geheugen */
-  }
-}
+import { mergeCatalogs } from '../api/merge'
+import {
+  addSavedSource,
+  getActiveSaved,
+  getMergeEnabled,
+  getSavedSources,
+  removeSavedSource,
+  setActiveSourceId,
+  setMergeEnabled,
+  updateSavedSource,
+  type SavedSource,
+} from '../api/sources'
 
 export interface UseCatalog {
   source: Source
   catalog: Catalog
   loading: boolean
   error: string | null
-  /** Wissel van bron; laadt en bewaart bij succes. Geeft true terug bij succes. */
+  /** Opgeslagen bronnen + status voor het bronbeheer. */
+  savedSources: SavedSource[]
+  activeId: string | null
+  merged: boolean
+  /** Voeg een bron toe, maak 'm actief en laad. (Ook door wizard/onboarding.) */
   setSource: (source: Source) => Promise<boolean>
+  /** Werk een bestaande bron bij en herlaad. */
+  updateSource: (id: string, source: Source) => Promise<boolean>
+  /** Wissel de actieve bron (bij niet-samengevoegd). */
+  switchSource: (id: string) => Promise<boolean>
+  /** Verwijder een bron en herlaad de selectie. */
+  removeSource: (id: string) => Promise<boolean>
+  /** Zet samenvoegen aan/uit en herlaad. */
+  setMerge: (on: boolean) => Promise<boolean>
   /** Terug naar de demo-bron. */
   reset: () => void
-  /** Vervang het actieve catalogus-item (bijv. na TMDB-verrijking). */
   patchCatalog: (updater: (prev: Catalog) => Catalog) => void
-  /** Was er bij opstart al een echte (niet-demo) bron bewaard? */
   configured: boolean
 }
 
 /**
- * Beheert de actieve bron en de bijbehorende catalogus. Start altijd direct met
- * de demo (synchroon, geen laadflits); een bewaarde echte bron wordt daarna op
- * de achtergrond geladen.
+ * Beheert de bron(nen) en de bijbehorende catalogus. Start met de demo (synchroon),
+ * en laadt daarna de opgeslagen bron(nen) — één actief, of alles samengevoegd.
  */
 export function useCatalog(): UseCatalog {
   const [source, setSourceState] = useState<Source>(DEMO_SOURCE)
   const [catalog, setCatalog] = useState<Catalog>(() => demoCatalog())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [configured] = useState(() => readStoredSource().kind !== 'demo')
+  const [savedSources, setSavedSources] = useState<SavedSource[]>(() => getSavedSources())
+  const [activeId, setActiveId] = useState<string | null>(() => getActiveSaved()?.id ?? null)
+  const [merged, setMerged] = useState(false)
+  const [configured] = useState(() => getSavedSources().some((s) => s.source.kind !== 'demo'))
   const abortRef = useRef<AbortController | null>(null)
 
-  /** Laadt een bron; geeft true terug bij succes, false bij fout/abort. */
-  const load = useCallback(async (next: Source): Promise<boolean> => {
+  /** Laadt de huidige selectie (actieve bron óf samengevoegd). */
+  const loadSelection = useCallback(async (): Promise<boolean> => {
     abortRef.current?.abort()
-    // AbortController ontbreekt op de oudste TV-engines (< Chromium 66) —
-    // dan draaien we zonder annulering i.p.v. te crashen.
-    const controller =
-      typeof AbortController !== 'undefined' ? new AbortController() : null
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
     abortRef.current = controller
     const aborted = () => controller?.signal.aborted ?? false
 
+    const reals = getSavedSources().filter((s) => s.source.kind !== 'demo')
+    setSavedSources(getSavedSources())
+    setActiveId(getActiveSaved()?.id ?? null)
+
+    // Geen echte bron → demo.
+    if (!reals.length) {
+      setMerged(false)
+      setSourceState(DEMO_SOURCE)
+      setCatalog(demoCatalog())
+      setLoading(false)
+      return true
+    }
+
     setLoading(true)
     setError(null)
-    resetHealth() // nieuwe bron → schone verbindingsdiagnose
+    resetHealth()
+
+    const mergeOn = getMergeEnabled() && reals.length > 1
+    setMerged(mergeOn)
+
     try {
-      // Progressief: toon secties zodra ze binnen zijn (niet wachten op de volledige
-      // download). setCatalog + setSourceState zodat de UI meteen iets toont.
+      if (mergeOn) {
+        // Samengevoegd: alle bronnen laden (met per-bron XMLTV-EPG), dan mergen.
+        const parts = await Promise.all(
+          reals.map(async (saved) => {
+            let cat = await loadCatalog(saved.source, controller?.signal)
+            if (cat.epgUrl) {
+              try {
+                cat = await loadAndApplyEpg(cat, Date.now(), controller?.signal)
+              } catch {
+                /* EPG optioneel */
+              }
+            }
+            return { saved, catalog: cat }
+          }),
+        )
+        if (aborted()) return false
+        markCatalogLoaded()
+        setCatalog(mergeCatalogs(parts))
+        setSourceState(reals[0].source) // representatief; items dragen hun eigen bron
+        return true
+      }
+
+      // Eén actieve bron — progressief laden.
+      const active = getActiveSaved() ?? reals[0]
       const onPartial = (partial: Catalog) => {
         if (aborted()) return
         setCatalog(partial)
-        setSourceState(next)
+        setSourceState(active.source)
       }
-      const result = await loadCatalog(next, controller?.signal, onPartial)
+      const result = await loadCatalog(active.source, controller?.signal, onPartial)
       if (aborted()) return false
-      // Catalogus geladen = account/API bereikbaar; basis voor de geo-/netwerkdiagnose.
-      if (next.kind !== 'demo') markCatalogLoaded()
+      markCatalogLoaded()
       setCatalog(result)
-      setSourceState(next)
-      storeSource(next)
-
-      // EPG op de achtergrond toepassen (live nu/straks) — niet-blokkerend.
+      setSourceState(active.source)
       if (result.epgUrl) {
         void loadAndApplyEpg(result, Date.now(), controller?.signal).then((withEpg) => {
           if (!aborted() && withEpg !== result) setCatalog(withEpg)
@@ -101,25 +135,85 @@ export function useCatalog(): UseCatalog {
     }
   }, [])
 
-  // Eenmalig: laad een eventueel bewaarde echte bron na de eerste render.
+  // Eenmalig: laad de opgeslagen selectie na de eerste render.
   useEffect(() => {
-    const stored = readStoredSource()
-    if (stored.kind !== 'demo') void load(stored)
+    if (getSavedSources().some((s) => s.source.kind !== 'demo')) void loadSelection()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const setSource = useCallback(
+    async (next: Source): Promise<boolean> => {
+      addSavedSource(next) // maakt 'm ook actief
+      return loadSelection()
+    },
+    [loadSelection],
+  )
+
+  const updateSource = useCallback(
+    async (id: string, next: Source): Promise<boolean> => {
+      updateSavedSource(id, next)
+      return loadSelection()
+    },
+    [loadSelection],
+  )
+
+  const switchSource = useCallback(
+    async (id: string): Promise<boolean> => {
+      setActiveSourceId(id)
+      return loadSelection()
+    },
+    [loadSelection],
+  )
+
+  const removeSource = useCallback(
+    async (id: string): Promise<boolean> => {
+      removeSavedSource(id)
+      return loadSelection()
+    },
+    [loadSelection],
+  )
+
+  const setMerge = useCallback(
+    async (on: boolean): Promise<boolean> => {
+      setMergeEnabled(on)
+      return loadSelection()
+    },
+    [loadSelection],
+  )
+
   const reset = useCallback(() => {
     abortRef.current?.abort()
+    // Alle opgeslagen bronnen weghalen → terug naar demo.
+    for (const s of getSavedSources()) removeSavedSource(s.id)
+    setMergeEnabled(false)
     setError(null)
     setLoading(false)
+    setMerged(false)
+    setSavedSources([])
+    setActiveId(null)
     setSourceState(DEMO_SOURCE)
     setCatalog(demoCatalog())
-    storeSource(DEMO_SOURCE)
   }, [])
 
   const patchCatalog = useCallback((updater: (prev: Catalog) => Catalog) => {
     setCatalog((prev) => updater(prev))
   }, [])
 
-  return { source, catalog, loading, error, setSource: load, reset, patchCatalog, configured }
+  return {
+    source,
+    catalog,
+    loading,
+    error,
+    savedSources,
+    activeId,
+    merged,
+    setSource,
+    updateSource,
+    switchSource,
+    removeSource,
+    setMerge,
+    reset,
+    patchCatalog,
+    configured,
+  }
 }

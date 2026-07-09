@@ -47,7 +47,13 @@ get/set-modules te zetten zodat sync één plek raakt.
 
 ---
 
-## PBI-010 — Meerdere bronnen (m3u/Xtream) 🟡
+## PBI-010 — Meerdere bronnen (m3u/Xtream) 🟢 (fase 1 + merge gedaan)
+
+**Stand.** Gebouwd: meerdere bronnen opslaan/benoemen/bewerken/verwijderen + snelle
+wisselaar (Instellingen → Bronnen), migratie van de losse legacy-bron, en de
+**samenvoeg-optie** met herkomst-tag, categorie-samenvoeging en ontdubbeling van
+live-kanalen (per-bron afspeelkeuze in het detail). Rest/aandachtspunten hieronder.
+
 
 **Waarom.** Veel gebruikers hebben meer dan één provider. Nu is er één actieve bron
 (`buisz.source`).

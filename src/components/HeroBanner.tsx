@@ -46,8 +46,8 @@ export default function HeroBanner({ item, onOpen }: HeroBannerProps) {
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-antraciet-900 via-antraciet-900/30 to-transparent" />
       </div>
 
-      {/* Inhoud */}
-      <div className="edge-x relative flex h-full max-w-2xl flex-col justify-end pb-[clamp(2rem,9vh,7rem)]">
+      {/* Inhoud — pt houdt de badge onder de (op mobiel twee-regelige) vaste header. */}
+      <div className="edge-x relative flex h-full max-w-2xl flex-col justify-end pt-28 pb-[clamp(2rem,9vh,7rem)] md:pt-24">
         <span className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-buisgroen/30 bg-buisgroen/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-buisgroen animate-fade-in">
           <span className="h-1.5 w-1.5 rounded-full bg-buisgroen" />
           {t('hero.featured')}

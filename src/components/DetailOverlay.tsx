@@ -158,6 +158,42 @@ export default function DetailOverlay({ item, onClose, onPlay }: DetailOverlayPr
             </button>
           </div>
 
+          {/* Herkomst / per-bron afspelen (alleen in de samengevoegde weergave). */}
+          {item.sourceName && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-mist-400">
+              {item.altSources?.length ? (
+                <>
+                  <span className="font-semibold uppercase tracking-wider text-mist-300">{t('detail.playVia')}</span>
+                  {[
+                    { sourceId: item.sourceId!, sourceName: item.sourceName, streamUrl: item.streamUrl },
+                    ...item.altSources,
+                  ].map((s, i) => (
+                    <button
+                      key={`${s.sourceId}-${i}`}
+                      onClick={() =>
+                        onPlay({
+                          title: item.title,
+                          url: s.streamUrl,
+                          kind: item.kind,
+                          id: item.id,
+                          poster: item.poster,
+                          backdrop: item.backdrop,
+                        })
+                      }
+                      className="rounded-full border border-white/15 px-2.5 py-1 font-semibold text-mist transition-colors hover:border-buisgroen/50 hover:bg-buisgroen/[0.08] hover:text-buisgroen focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+                    >
+                      {s.sourceName}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <span>
+                  <span className="font-semibold uppercase tracking-wider text-mist-300">{t('detail.source')}</span> · {item.sourceName}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Metadata-regel */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium text-mist-400">
             {item.score != null && (

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { EpgEntry, MediaItem } from '../types/content'
 import type { Source } from '../types/source'
 import { loadShortEpg } from '../api/xtream'
+import { resolveSource } from '../api/sources'
 
 const MAX_EPG_ATTEMPTS = 3
 
@@ -51,8 +52,12 @@ export function useLazyChannelEpg(
       return
     }
 
+    // In de samengevoegde weergave komt het item van een andere bron dan de actieve:
+    // gebruik de bron van het item zelf voor de per-kanaal-EPG.
+    const itemSource = (item.sourceId ? resolveSource(item.sourceId) : undefined) ?? source
+
     // Alleen Xtream-live kan per kanaal EPG leveren; anders definitief leeg.
-    if (!(source.kind === 'xtream' && item.ref?.kind === 'xtream-live')) {
+    if (!(itemSource.kind === 'xtream' && item.ref?.kind === 'xtream-live')) {
       setEpg([])
       return
     }
@@ -63,7 +68,7 @@ export function useLazyChannelEpg(
 
     const tryFetch = async () => {
       try {
-        const list = await loadShortEpg(source, streamId, 8)
+        const list = await loadShortEpg(itemSource, streamId, 8)
         // Succes (ook een lege lijst = provider heeft géén EPG) → definitief.
         if (!cancelled) setEpg(list)
       } catch {

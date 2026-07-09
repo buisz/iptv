@@ -21,6 +21,7 @@ import { loadSeriesInfo, loadShortEpg, loadVodQuality } from './api/xtream'
 import { nowNext } from './api/epg'
 import { getContinueWatching } from './api/progress'
 import { recordWatch, getRecentlyWatched } from './api/history'
+import { resolveSource } from './api/sources'
 import { getFavorites } from './api/favorites'
 import { useT } from './i18n'
 import type { ContentRowData } from './types/content'
@@ -45,11 +46,29 @@ function markOnboarded() {
 
 export default function App() {
   const t = useT()
-  const { source, catalog, loading, error, setSource, reset, patchCatalog, configured } = useCatalog()
+  const {
+    source,
+    catalog,
+    loading,
+    error,
+    savedSources,
+    activeId,
+    merged,
+    setSource,
+    updateSource,
+    switchSource,
+    removeSource,
+    setMerge,
+    reset,
+    patchCatalog,
+    configured,
+  } = useCatalog()
   const [activeKey, setActiveKey] = useState('home')
   const [selected, setSelected] = useState<MediaItem | null>(null)
   const [playing, setPlaying] = useState<PlayRequest | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
+  // Bewerkt de modal een bestaande bron (id) of voegt hij een nieuwe toe (null)?
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -222,10 +241,14 @@ export default function App() {
 
     let enriched = item
 
+    // In de samengevoegde weergave hoort het item bij een eigen bron; gebruik die
+    // voor de per-item-calls i.p.v. de (representatieve) actieve bron.
+    const itemSource = (item.sourceId ? resolveSource(item.sourceId) : undefined) ?? source
+
     // Xtream: laad seizoenen/afleveringen indien nog niet aanwezig.
-    if (item.ref?.kind === 'xtream-series' && !item.seasons && source.kind === 'xtream') {
+    if (item.ref?.kind === 'xtream-series' && !item.seasons && itemSource.kind === 'xtream') {
       try {
-        const seasons = await loadSeriesInfo(source, item.ref.id)
+        const seasons = await loadSeriesInfo(itemSource, item.ref.id)
         enriched = { ...enriched, seasons }
       } catch {
         /* series-info optioneel — toon detail zonder afleveringen */
@@ -233,9 +256,9 @@ export default function App() {
     }
 
     // Xtream-film: haal accurate codec/resolutie op (overschrijft de naam-heuristiek).
-    if (item.ref?.kind === 'xtream-vod' && enriched.quality?.from !== 'meta' && source.kind === 'xtream') {
+    if (item.ref?.kind === 'xtream-vod' && enriched.quality?.from !== 'meta' && itemSource.kind === 'xtream') {
       try {
-        const quality = await loadVodQuality(source, item.ref.id)
+        const quality = await loadVodQuality(itemSource, item.ref.id)
         if (quality) enriched = { ...enriched, quality }
       } catch {
         /* vod-info optioneel — val terug op naam-heuristiek */
@@ -244,9 +267,9 @@ export default function App() {
 
     // Xtream-live: betrouwbare nu/straks via get_short_epg (per stream_id), ook als de
     // XMLTV-id/naam niet matcht.
-    if (item.ref?.kind === 'xtream-live' && !enriched.epgNow && source.kind === 'xtream') {
+    if (item.ref?.kind === 'xtream-live' && !enriched.epgNow && itemSource.kind === 'xtream') {
       try {
-        const list = await loadShortEpg(source, item.ref.id)
+        const list = await loadShortEpg(itemSource, item.ref.id)
         const { now, next } = nowNext(list, Date.now())
         if (list.length || now || next) {
           enriched = {
@@ -282,9 +305,23 @@ export default function App() {
   }
 
   async function applySource(next: Source) {
-    const ok = await setSource(next)
+    // Bewerken van een bestaande bron werkt die bij; anders een nieuwe toevoegen.
+    const ok = editingId ? await updateSource(editingId, next) : await setSource(next)
     // Sluit de modal alleen bij succes; bij een fout blijft hij open met de melding.
-    if (ok) setSourceOpen(false)
+    if (ok) {
+      setSourceOpen(false)
+      setEditingId(null)
+    }
+  }
+
+  function openAddSource() {
+    setEditingId(null)
+    setSourceOpen(true)
+  }
+
+  function openEditSource(id: string) {
+    setEditingId(id)
+    setSourceOpen(true)
   }
 
   // Wizard: laadt de bron en sluit de wizard alleen bij succes.
@@ -326,7 +363,7 @@ export default function App() {
         onSelect={handleSelectSection}
         sourceLabel={catalog.sourceLabel}
         loading={loading}
-        onOpenSource={() => setSourceOpen(true)}
+        onOpenSource={openAddSource}
         onSearch={() => setSearchOpen(true)}
         onGuide={() => setGuideOpen(true)}
         onSettings={() => setSettingsOpen(true)}
@@ -484,12 +521,21 @@ export default function App() {
 
       <SettingsOverlay
         open={settingsOpen}
-        sourceLabel={catalog.sourceLabel}
-        onClose={() => setSettingsOpen(false)}
-        onManageSource={() => {
+        sources={savedSources}
+        activeId={activeId}
+        merged={merged}
+        onAddSource={() => {
           setSettingsOpen(false)
-          setSourceOpen(true)
+          openAddSource()
         }}
+        onEditSource={(id) => {
+          setSettingsOpen(false)
+          openEditSource(id)
+        }}
+        onSwitchSource={(id) => void switchSource(id)}
+        onRemoveSource={(id) => void removeSource(id)}
+        onSetMerge={(on) => void setMerge(on)}
+        onClose={() => setSettingsOpen(false)}
         onRestartWizard={() => {
           setSettingsOpen(false)
           openWizard()
@@ -502,13 +548,17 @@ export default function App() {
         busy={loading}
         error={error}
         currentKind={source.kind}
-        initial={source}
-        onClose={() => setSourceOpen(false)}
+        initial={editingId ? savedSources.find((s) => s.id === editingId)?.source ?? null : null}
+        onClose={() => {
+          setSourceOpen(false)
+          setEditingId(null)
+        }}
         onApply={applySource}
         onPair={() => setPairOpen(true)}
         onResetDemo={() => {
           reset()
           setSourceOpen(false)
+          setEditingId(null)
         }}
       />
     </div>

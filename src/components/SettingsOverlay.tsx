@@ -7,12 +7,20 @@ import { clearHistory } from '../api/history'
 import { pairBase, setPairBase } from '../api/pairing'
 import { getBufferPreset, setBufferPreset, type BufferPreset } from '../api/player/buffering'
 import { getLiveView, setLiveView, type LiveView } from '../api/liveView'
+import { describeSource } from '../types/source'
+import type { SavedSource } from '../api/sources'
 
 interface SettingsOverlayProps {
   open: boolean
-  sourceLabel: string
+  sources: SavedSource[]
+  activeId: string | null
+  merged: boolean
+  onAddSource: () => void
+  onEditSource: (id: string) => void
+  onSwitchSource: (id: string) => void
+  onRemoveSource: (id: string) => void
+  onSetMerge: (on: boolean) => void
   onClose: () => void
-  onManageSource: () => void
   onRestartWizard: () => void
   /** Roep aan na het wissen van lijst/geschiedenis, om home te verversen. */
   onChanged: () => void
@@ -93,9 +101,15 @@ function Row({
 
 export default function SettingsOverlay({
   open,
-  sourceLabel,
+  sources,
+  activeId,
+  merged,
+  onAddSource,
+  onEditSource,
+  onSwitchSource,
+  onRemoveSource,
+  onSetMerge,
   onClose,
-  onManageSource,
   onRestartWizard,
   onChanged,
 }: SettingsOverlayProps) {
@@ -221,9 +235,80 @@ export default function SettingsOverlay({
             </p>
           </Section>
 
-          {/* Bron */}
-          <Section title={t('settings.source')}>
-            <Row label={t('settings.sourceManage')} hint={sourceLabel} onClick={onManageSource} />
+          {/* Bronnen */}
+          <Section title={t('settings.sources')}>
+            {sources.length === 0 ? (
+              <p className="px-4 py-3 text-xs text-mist-400">{t('settings.noSources')}</p>
+            ) : (
+              sources.map((s) => {
+                const active = s.id === activeId
+                return (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between gap-2 border-b border-white/[0.04] px-4 py-3 last:border-b-0"
+                  >
+                    <button
+                      onClick={() => !merged && onSwitchSource(s.id)}
+                      disabled={merged}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-buisgroen rounded disabled:cursor-default"
+                    >
+                      <span
+                        className={[
+                          'grid h-4 w-4 shrink-0 place-items-center rounded-full border',
+                          active && !merged ? 'border-buisgroen' : 'border-white/20',
+                        ].join(' ')}
+                      >
+                        {active && !merged && <span className="h-2 w-2 rounded-full bg-buisgroen" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-mist">{s.name}</span>
+                        <span className="block truncate text-xs text-mist-400">{describeSource(s.source)}</span>
+                      </span>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => onEditSource(s.id)}
+                        aria-label={t('settings.sourceEdit')}
+                        className="grid h-8 w-8 place-items-center rounded-full text-mist-300 transition-colors hover:bg-white/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(t('settings.sourceRemoveConfirm', { name: s.name }))) onRemoveSource(s.id)
+                        }}
+                        aria-label={t('settings.sourceRemove')}
+                        className="grid h-8 w-8 place-items-center rounded-full text-mist-300 transition-colors hover:bg-red-500/10 hover:text-red-400 focus-visible:ring-2 focus-visible:ring-buisgroen outline-none"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+
+            {/* Samenvoegen (alleen zinvol bij meerdere bronnen). */}
+            {sources.length > 1 && (
+              <button
+                onClick={() => onSetMerge(!merged)}
+                className="flex w-full items-center justify-between gap-3 border-t border-white/[0.06] px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-buisgroen"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-mist">{t('settings.mergeSources')}</span>
+                  <span className="mt-0.5 block text-xs text-mist-400">{t('settings.mergeSourcesHint')}</span>
+                </span>
+                <span className={['h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors', merged ? 'bg-buisgroen' : 'bg-white/15'].join(' ')}>
+                  <span className={['block h-4 w-4 rounded-full bg-antraciet-900 transition-transform', merged ? 'translate-x-4' : ''].join(' ')} />
+                </span>
+              </button>
+            )}
+
+            <Row label={t('settings.sourceAdd')} onClick={onAddSource} />
             <Row label={t('settings.restartWizard')} hint={t('settings.restartWizardHint')} onClick={onRestartWizard} />
           </Section>
 

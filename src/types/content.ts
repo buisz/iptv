@@ -72,6 +72,25 @@ export interface MediaItem {
    * metadata komen; voor live/M3U is het een heuristiek uit naam-hints.
    */
   quality?: QualityHint
+
+  // ── Multi-bron: herkomst (alleen gezet in de samengevoegde weergave) ──
+  /** Id van de bron waar dit item vandaan komt (voor EPG/afspelen per bron). */
+  sourceId?: string
+  /** Weergavenaam van de bron (subtiele herkomstaanduiding). */
+  sourceName?: string
+  /**
+   * Zelfde kanaal/titel uit andere bronnen (bij samenvoegen ontdubbeld). Zo kun je
+   * kiezen via welke bron je afspeelt. De primaire keuze staat op het item zelf.
+   */
+  altSources?: AltSource[]
+}
+
+/** Een alternatieve bron voor hetzelfde item (bij samengevoegde bibliotheek). */
+export interface AltSource {
+  sourceId: string
+  sourceName: string
+  streamUrl?: string
+  ref?: MediaItem['ref']
 }
 
 /** Eén EPG-uitzending (tijden in ms sinds epoch). */
