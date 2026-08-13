@@ -94,6 +94,9 @@ export default function Player({ request, onClose }: PlayerProps) {
   const [airplayAvailable, setAirplayAvailable] = useState(false)
   // Live: staat de kijker achter op de live-rand (gepauzeerd of teruggespoeld)?
   const [behindLive, setBehindLive] = useState(false)
+  // Speler-chrome (titelbalk + live-knop) tonen/verbergen bij (in)activiteit.
+  const [chromeVisible, setChromeVisible] = useState(true)
+  const rootRef = useRef<HTMLDivElement>(null)
   // Eén volumeregeling: de native <video controls>. We onthouden alleen de keuze —
   // pas de opgeslagen waarde toe bij een nieuwe bron en bewaar native wijzigingen.
   useEffect(() => {
@@ -129,6 +132,33 @@ export default function Player({ request, onClose }: PlayerProps) {
       for (const ev of ['pause', 'play']) v.removeEventListener(ev, update)
     }
   }, [request, status])
+
+  // Verberg de chrome (titelbalk + live-knop) na inactiviteit tijdens het afspelen,
+  // net als de native controls; muisbeweging/toets/aanraking brengt 'm terug.
+  useEffect(() => {
+    if (status !== 'playing') {
+      setChromeVisible(true)
+      return
+    }
+    const el = rootRef.current
+    if (!el) return
+    let timer: ReturnType<typeof setTimeout>
+    const show = () => {
+      setChromeVisible(true)
+      clearTimeout(timer)
+      timer = setTimeout(() => setChromeVisible(false), 3000)
+    }
+    show()
+    el.addEventListener('pointermove', show)
+    el.addEventListener('pointerdown', show)
+    window.addEventListener('keydown', show)
+    return () => {
+      clearTimeout(timer)
+      el.removeEventListener('pointermove', show)
+      el.removeEventListener('pointerdown', show)
+      window.removeEventListener('keydown', show)
+    }
+  }, [status])
 
   /** Spring naar de live-rand (einde van de gebufferde data) en speel door. */
   function goLive() {
@@ -511,14 +541,27 @@ export default function Player({ request, onClose }: PlayerProps) {
 
   if (!request) return null
 
+  // Chrome zichtbaar bij activiteit; blijft staan zolang je gepauzeerd bent (dan wil
+  // je de "Naar live"-knop en sluitknop juist zien).
+  const chromeShown = chromeVisible || behindLive
+
   return (
     <div
+      ref={rootRef}
       role="dialog"
       aria-modal="true"
       aria-label={`Speler — ${request.title}`}
-      className="fixed inset-0 z-[70] flex flex-col bg-black animate-fade-in"
+      className={[
+        'fixed inset-0 z-[70] flex flex-col bg-black animate-fade-in',
+        chromeShown ? '' : 'cursor-none',
+      ].join(' ')}
     >
-      <div className="flex items-center justify-between gap-4 bg-gradient-to-b from-black/80 to-transparent px-[var(--edge)] py-4">
+      <div
+        className={[
+          'flex items-center justify-between gap-4 bg-gradient-to-b from-black/80 to-transparent px-[var(--edge)] py-4 transition-opacity duration-300',
+          chromeShown ? 'opacity-100' : 'pointer-events-none opacity-0',
+        ].join(' ')}
+      >
         <div className="min-w-0">
           <p className="truncate text-base font-bold text-mist">{request.title}</p>
           <p className="text-xs text-mist-300">
@@ -586,7 +629,8 @@ export default function Player({ request, onClose }: PlayerProps) {
             disabled={!behindLive}
             aria-label={t('player.goLive')}
             className={[
-              'absolute left-4 top-4 flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-bold uppercase tracking-wider outline-none transition-colors focus-visible:ring-2 focus-visible:ring-buisgroen',
+              'absolute left-4 top-4 flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-bold uppercase tracking-wider outline-none transition-[opacity,background-color] duration-300 focus-visible:ring-2 focus-visible:ring-buisgroen',
+              chromeShown ? 'opacity-100' : 'pointer-events-none opacity-0',
               behindLive
                 ? 'cursor-pointer bg-buisgroen text-antraciet-900 hover:bg-buisgroen-400'
                 : 'cursor-default bg-antraciet-900/80 text-mist backdrop-blur-sm',
