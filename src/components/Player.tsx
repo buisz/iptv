@@ -113,46 +113,40 @@ export default function Player({ request, onClose }: PlayerProps) {
     return () => v.removeEventListener('volumechange', onVol)
   }, [request])
 
-  // Live: bewaak of de kijker achterloopt op de live-rand (gepauzeerd of teruggespoeld),
-  // zodat we een "naar live"-knop kunnen tonen.
+  // Live: met verborgen scrubber kun je alleen achterlopen door te pauzeren. De
+  // "seekable"-heuristiek is bij MSE-live onbetrouwbaar (fantoomrand → seek in een
+  // lege regio = vastloper), dus koppelen we de knop simpelweg aan pauze.
   useEffect(() => {
     const v = videoRef.current
     if (!v || request?.kind !== 'live') {
       setBehindLive(false)
       return
     }
-    const update = () => {
-      try {
-        const sk = v.seekable
-        if (!sk || sk.length === 0) {
-          setBehindLive(v.paused)
-          return
-        }
-        const edge = sk.end(sk.length - 1)
-        setBehindLive(v.paused || edge - v.currentTime > 8) // >8s achter = niet live
-      } catch {
-        setBehindLive(v.paused)
-      }
-    }
-    for (const ev of ['timeupdate', 'pause', 'play', 'seeked']) v.addEventListener(ev, update)
+    const update = () => setBehindLive(v.paused)
+    update()
+    for (const ev of ['pause', 'play']) v.addEventListener(ev, update)
     return () => {
-      for (const ev of ['timeupdate', 'pause', 'play', 'seeked']) v.removeEventListener(ev, update)
+      for (const ev of ['pause', 'play']) v.removeEventListener(ev, update)
     }
   }, [request, status])
 
-  /** Spring naar de live-rand en speel door. Werkt voor hls.js/mpegts.js/native. */
+  /** Spring naar de live-rand (einde van de gebufferde data) en speel door. */
   function goLive() {
     const v = videoRef.current
     if (!v) return
     try {
-      const sk = v.seekable
-      if (sk && sk.length) v.currentTime = sk.end(sk.length - 1)
+      const b = v.buffered
+      if (b && b.length) {
+        // Iets vóór het einde van de gebufferde data → altijd data aanwezig, geen
+        // stall; en nooit terug in de tijd (alleen naar voren, richting live).
+        const target = b.end(b.length - 1) - 1
+        if (target > v.currentTime) v.currentTime = target
+      }
     } catch {
-      /* seekable soms nog niet beschikbaar */
+      /* buffered soms nog niet beschikbaar */
     }
-    // Alleen play() als hij gepauzeerd is, en de belofte afvangen: het seeken kan
-    // een lopende play() onderbreken → AbortError ("interrupted by pause()").
-    if (v.paused) v.play().catch(() => {})
+    // play()-belofte afvangen: seeken kan een lopende play() onderbreken (AbortError).
+    v.play().catch(() => {})
   }
 
   // Chromecast — CAF Web Sender: alleen actief in echte Chrome-browsers.
