@@ -92,6 +92,8 @@ export default function Player({ request, onClose }: PlayerProps) {
   // Chromecast (CAF) beschikbaar in deze browser? AirPlay (WebKit) beschikbaar?
   const [castAvailable, setCastAvailable] = useState(false)
   const [airplayAvailable, setAirplayAvailable] = useState(false)
+  // Live: staat de kijker achter op de live-rand (gepauzeerd of teruggespoeld)?
+  const [behindLive, setBehindLive] = useState(false)
   // Eén volumeregeling: de native <video controls>. We onthouden alleen de keuze —
   // pas de opgeslagen waarde toe bij een nieuwe bron en bewaar native wijzigingen.
   useEffect(() => {
@@ -110,6 +112,46 @@ export default function Player({ request, onClose }: PlayerProps) {
     v.addEventListener('volumechange', onVol)
     return () => v.removeEventListener('volumechange', onVol)
   }, [request])
+
+  // Live: bewaak of de kijker achterloopt op de live-rand (gepauzeerd of teruggespoeld),
+  // zodat we een "naar live"-knop kunnen tonen.
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v || request?.kind !== 'live') {
+      setBehindLive(false)
+      return
+    }
+    const update = () => {
+      try {
+        const sk = v.seekable
+        if (!sk || sk.length === 0) {
+          setBehindLive(v.paused)
+          return
+        }
+        const edge = sk.end(sk.length - 1)
+        setBehindLive(v.paused || edge - v.currentTime > 8) // >8s achter = niet live
+      } catch {
+        setBehindLive(v.paused)
+      }
+    }
+    for (const ev of ['timeupdate', 'pause', 'play', 'seeked']) v.addEventListener(ev, update)
+    return () => {
+      for (const ev of ['timeupdate', 'pause', 'play', 'seeked']) v.removeEventListener(ev, update)
+    }
+  }, [request, status])
+
+  /** Spring naar de live-rand en speel door. Werkt voor hls.js/mpegts.js/native. */
+  function goLive() {
+    const v = videoRef.current
+    if (!v) return
+    try {
+      const sk = v.seekable
+      if (sk && sk.length) v.currentTime = sk.end(sk.length - 1)
+    } catch {
+      /* seekable soms nog niet beschikbaar */
+    }
+    void v.play()
+  }
 
   // Chromecast — CAF Web Sender: alleen actief in echte Chrome-browsers.
   function castNow() {
@@ -535,6 +577,30 @@ export default function Player({ request, onClose }: PlayerProps) {
           autoPlay
           playsInline
         />
+
+        {/* Live-rand-indicator: "LIVE" als je live kijkt, "Naar live" (klikbaar) zodra
+            je gepauzeerd of teruggespoeld hebt. Boven de native controls, links. */}
+        {request.kind === 'live' && (status === 'playing' || status === 'loading') && (
+          <button
+            onClick={goLive}
+            disabled={!behindLive}
+            aria-label={t('player.goLive')}
+            className={[
+              'absolute left-4 top-4 flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-bold uppercase tracking-wider outline-none transition-colors focus-visible:ring-2 focus-visible:ring-buisgroen',
+              behindLive
+                ? 'cursor-pointer bg-buisgroen text-antraciet-900 hover:bg-buisgroen-400'
+                : 'cursor-default bg-antraciet-900/80 text-mist backdrop-blur-sm',
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'h-2 w-2 rounded-full',
+                behindLive ? 'bg-antraciet-900' : 'bg-red-500 animate-pulse-soft',
+              ].join(' ')}
+            />
+            {behindLive ? t('player.goLive') : t('player.live')}
+          </button>
+        )}
 
         {/* Eén laad-ring: in de browser toont <video> zijn eigen buffer-spinner, dus
             onze ring alleen voor de native (Capacitor) speler — geen dubbele cirkel. */}
