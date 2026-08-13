@@ -150,7 +150,9 @@ export default function Player({ request, onClose }: PlayerProps) {
     } catch {
       /* seekable soms nog niet beschikbaar */
     }
-    void v.play()
+    // Alleen play() als hij gepauzeerd is, en de belofte afvangen: het seeken kan
+    // een lopende play() onderbreken → AbortError ("interrupted by pause()").
+    if (v.paused) v.play().catch(() => {})
   }
 
   // Chromecast — CAF Web Sender: alleen actief in echte Chrome-browsers.
@@ -572,7 +574,11 @@ export default function Player({ request, onClose }: PlayerProps) {
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
         <video
           ref={videoRef}
-          className="h-full max-h-full w-full object-contain"
+          className={[
+            'h-full max-h-full w-full object-contain',
+            // Live: verberg de meeschuivende tijdlijn/tijden in de native controls.
+            request.kind === 'live' ? 'player-live' : '',
+          ].join(' ')}
           controls
           autoPlay
           playsInline
