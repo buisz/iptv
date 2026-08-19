@@ -41,6 +41,10 @@ function v4InRange(n, cidrBase, bits) {
 /** Is een IP (v4 of v6-tekst) privé/intern en dus verboden? */
 export function isBlockedIp(ip) {
   if (!ip) return true
+  // TEST-ONLY: sta loopback toe wanneer expliciet ingeschakeld, zodat een lokale
+  // synthetische live-bron (scripts/synth-live.mjs) via /__proxy getest kan worden.
+  // Standaard UIT; nooit aanzetten in productie. Zie docs/testing-live.md.
+  if (process.env.BUISZ_ALLOW_LOOPBACK === '1' && (ip === '127.0.0.1' || ip === '::1')) return false
   // IPv4-mapped IPv6 (::ffff:1.2.3.4) → check de v4.
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip)
   if (mapped) return isBlockedIp(mapped[1])

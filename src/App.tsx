@@ -235,6 +235,16 @@ export default function App() {
     setPlaying(req)
   }
 
+  // DEV-only testhaak: open de speler direct op een URL zonder bron-config, voor het
+  // valideren van live-afspelen tegen de synthetische bron (zie docs/testing-live.md).
+  // ?__testlive=<url> . Wordt uit de productiebuild gestript (import.meta.env.DEV).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const u = new URLSearchParams(window.location.search).get('__testlive')
+    if (u) startPlay({ title: 'Synthetische live', url: u, kind: 'live' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /** Opent het detail en verrijkt het item op de achtergrond (TMDB / series-info). */
   async function openItem(item: MediaItem) {
     setSelected(item)
