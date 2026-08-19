@@ -321,6 +321,12 @@ export default function Player({ request, onClose }: PlayerProps) {
     if (!video) return
 
     let cancelled = false
+    // Live self-heal: als een live-feed eindigt (mpegts.js LOADING_COMPLETE →
+    // MediaSource 'ended'), verbinden we opnieuw i.p.v. stil te blijven hangen.
+    // Begrensd + met backoff zodat we niet hot-loopen als de provider blijft sluiten.
+    let liveReloads = 0
+    let reloadTimer: ReturnType<typeof setTimeout> | undefined
+    const MAX_LIVE_RELOADS = 5
     setStatus('loading')
     setMessage('')
     setDetail('')
@@ -442,6 +448,22 @@ export default function Player({ request, onClose }: PlayerProps) {
                 fail(msg, category, tech)
               },
             )
+            // Een live-feed hoort niet te "voltooien". Gebeurt dat toch (upstream sloot
+            // de verbinding), dan is de MediaSource nu 'ended' → herverbinden. Voor VOD
+            // is LOADING_COMPLETE juist normaal (bestand klaar) → niets doen.
+            player.on(mpegts.Events.LOADING_COMPLETE, () => {
+              if (cancelled || request!.kind !== 'live') return
+              if (liveReloads >= MAX_LIVE_RELOADS) {
+                fail(networkBase, 'network', 'mpegts.js LOADING_COMPLETE — live-feed herhaaldelijk afgebroken')
+                return
+              }
+              liveReloads++
+              setStatus('loading')
+              setMessage('')
+              reloadTimer = setTimeout(() => {
+                if (!cancelled) rebuild(profile)
+              }, Math.min(4000, 400 * liveReloads))
+            })
             player.load()
             cleanupRef.current = () => {
               player.destroy()
@@ -488,6 +510,7 @@ export default function Player({ request, onClose }: PlayerProps) {
     const onPlaying = () => {
       if (cancelled) return
       recordStreamSuccess(streamId)
+      liveReloads = 0 // stabiel afspelen → reconnect-budget resetten
       setStatus('playing')
     }
     const onErr = () => {
@@ -503,7 +526,10 @@ export default function Player({ request, onClose }: PlayerProps) {
 
       const classify = async () => {
         let status = 0
-        if (url) {
+        // Status-probe alleen voor VOD: bij live zou een tweede verbinding een
+        // provider met max. verbindingen de lopende zender kunnen kosten. Live-fouten
+        // classificeert de engine-ERROR-handler (mpegts/hls) al.
+        if (url && request!.kind !== 'live') {
           try {
             const res = await fetch(proxied(url, { stream: true }), { headers: { range: 'bytes=0-1' } })
             status = res.status
@@ -531,6 +557,7 @@ export default function Player({ request, onClose }: PlayerProps) {
 
     return () => {
       cancelled = true
+      if (reloadTimer) clearTimeout(reloadTimer)
       adaptive?.destroy()
       video.removeEventListener('playing', onPlaying)
       video.removeEventListener('error', onErr)

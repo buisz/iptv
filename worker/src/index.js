@@ -205,7 +205,14 @@ export default {
       }
 
       const respHeaders = new Headers(CORS)
-      for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
+      // Live .ts = oneindige feed: geen eindige content-length adverteren (anders
+      // leest mpegts.js exact zoveel bytes → endOfStream → zender stopt), tenzij de
+      // client een Range vroeg (VOD-zoeken). Data/logo's (niet-stream) altijd volledig.
+      const passRange = !isStream || request.headers.get('range')
+      const fwd = passRange
+        ? ['content-type', 'content-range', 'accept-ranges', 'content-length']
+        : ['content-type']
+      for (const h of fwd) {
         const v = upstream.headers.get(h)
         if (v) respHeaders.set(h, v)
       }

@@ -114,7 +114,15 @@ async function handleProxy(req, res, target, isStream = false) {
       return
     }
 
-    for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
+    // Een live .ts is een oneindige feed. Geven we upstream's content-length door,
+    // dan leest mpegts.js exact zoveel bytes en denkt hij "download klaar" →
+    // MediaSource.endOfStream() → de zender stopt. Adverteer daarom géén eindige
+    // lengte tenzij de client een Range vroeg (VOD-zoeken heeft dat wél nodig).
+    const passRangeHeaders = Boolean(req.headers.range)
+    const streamHeaders = passRangeHeaders
+      ? ['content-type', 'content-range', 'accept-ranges', 'content-length']
+      : ['content-type']
+    for (const h of streamHeaders) {
       const v = upstream.headers.get(h)
       if (v) res.setHeader(h, v)
     }

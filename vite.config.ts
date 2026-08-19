@@ -101,7 +101,14 @@ function devProxy(): Plugin {
             return
           }
 
-          for (const h of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
+          // Live .ts = oneindige feed. content-length doorgeven → mpegts.js leest
+          // exact zoveel bytes en denkt "download klaar" → endOfStream() → zender
+          // stopt. Adverteer geen eindige lengte tenzij de client een Range vroeg
+          // (VOD-zoeken heeft dat nodig).
+          const streamHeaders = req.headers.range
+            ? ['content-type', 'content-range', 'accept-ranges', 'content-length']
+            : ['content-type']
+          for (const h of streamHeaders) {
             const v = upstream.headers.get(h)
             if (v) res.setHeader(h, v)
           }
